@@ -56,20 +56,28 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                 setSummary(null);
                 setMetadata(null);
               }}
-              className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+              className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                 selected?.id === doc.id
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-200 bg-white hover:bg-zinc-50"
+                  ? "border-primary bg-primary text-white"
+                  : "border-border bg-surface text-foreground hover:bg-surface-muted"
               }`}
             >
               <p className="truncate font-medium">{doc.document_name}</p>
-              <p className={selected?.id === doc.id ? "text-zinc-300" : "text-zinc-500"}>
+              <p
+                className={
+                  selected?.id === doc.id
+                    ? "text-white/70"
+                    : "text-text-secondary"
+                }
+              >
                 {doc.file_type.toUpperCase()} · {doc.status}
               </p>
             </button>
           ))}
           {!documents.length ? (
-            <p className="text-sm text-zinc-500">No documents yet. Upload from Admin.</p>
+            <p className="text-sm text-text-secondary">
+              No documents yet. Upload from Admin.
+            </p>
           ) : null}
         </CardContent>
       </Card>
@@ -103,19 +111,21 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                 </div>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                  <p className="mb-2 text-sm font-medium">Summary</p>
-                  <p className="whitespace-pre-wrap text-sm text-zinc-600">
+                <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
+                  <p className="mb-2 text-sm font-medium text-foreground">Summary</p>
+                  <p className="whitespace-pre-wrap text-sm text-text-secondary">
                     {summary ?? "Click Summarize to generate bullet points."}
                   </p>
                 </div>
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-                  <p className="mb-2 text-sm font-medium">Metadata</p>
-                  <p className="whitespace-pre-wrap text-sm text-zinc-600">
+                <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
+                  <p className="mb-2 text-sm font-medium text-foreground">Metadata</p>
+                  <p className="whitespace-pre-wrap text-sm text-text-secondary">
                     {metadata ?? "Click Extract Metadata for structured fields."}
                   </p>
                 </div>
-                {error ? <p className="text-sm text-red-600 md:col-span-2">{error}</p> : null}
+                {error ? (
+                  <p className="text-sm text-danger md:col-span-2">{error}</p>
+                ) : null}
               </CardContent>
             </Card>
 
@@ -127,7 +137,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
           </>
         ) : (
           <Card>
-            <CardContent className="py-12 text-center text-sm text-zinc-500">
+            <CardContent className="py-12 text-center text-sm text-text-secondary">
               Select a document to summarize, extract, or ask questions.
             </CardContent>
           </Card>

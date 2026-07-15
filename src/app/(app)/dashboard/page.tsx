@@ -1,17 +1,16 @@
+import { auth } from "@/lib/auth";
 import { ChatPanel } from "@/components/chat/chat-panel";
-import { SearchBar } from "@/components/search/search-bar";
+import { DashboardIntro } from "@/components/dashboard/dashboard-intro";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await auth();
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-zinc-500">
-          Search, chat with citations, and reopen past conversations.
-        </p>
+    <div className="mx-auto max-w-7xl space-y-8">
+      <DashboardIntro name={session?.user?.name} />
+      <div id="knowledge-chat">
+        <ChatPanel />
       </div>
-      <SearchBar />
-      <ChatPanel />
     </div>
   );
 }

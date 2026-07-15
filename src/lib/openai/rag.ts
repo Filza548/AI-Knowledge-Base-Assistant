@@ -14,6 +14,20 @@ export type RetrieveOptions = {
   matchCount?: number;
 };
 
+/** Cosine distance cutoff (Safa RAG). distance = 1 - similarity. */
+const MAX_RELEVANT_DISTANCE = 0.8;
+
+const SYSTEM_PROMPT = `You are an internal knowledge assistant embedded in a company dashboard.
+
+- If the user's message is a greeting, thanks, or casual small talk (e.g. "hi", "hello", "thank you"), reply briefly and warmly in your own words. Do not mention documents, context, or citations for these.
+- If the user asks a substantive question, answer ONLY using the context excerpts provided below.
+- Every claim in a substantive answer must cite its source inline in the format (Source: <document name>, Page <page number>). If a chunk has no page number, cite just (Source: <document name>).
+- If it's a substantive question and the context does not contain the answer, respond exactly: "I couldn't find this information in the knowledge base."
+- Never use knowledge outside the provided context for substantive questions.`;
+
+const NOT_FOUND_ANSWER =
+  "I couldn't find this information in the knowledge base.";
+
 function confidenceLevel(score: number): ConfidenceLevel {
   if (score <= 0) return "none";
   if (score >= 0.72) return "high";
@@ -38,6 +52,15 @@ function buildCitations(matches: DocumentChunkMatch[]): Citation[] {
   }
 
   return citations;
+}
+
+function buildContextBlock(matches: DocumentChunkMatch[]): string {
+  return matches
+    .map((m, i) => {
+      const location = m.page_number != null ? `, Page ${m.page_number}` : "";
+      return `[Excerpt ${i + 1}] (Source: ${m.document_name}${location})\n${m.content}`;
+    })
+    .join("\n\n");
 }
 
 export async function resolveCollectionDocumentIds(
@@ -74,7 +97,12 @@ export async function retrieveChunks(
   });
 
   if (error) throw error;
-  return (data ?? []) as DocumentChunkMatch[];
+
+  const matches = (data ?? []) as DocumentChunkMatch[];
+  return matches.filter((m) => {
+    const distance = 1 - (m.similarity ?? 0);
+    return distance <= MAX_RELEVANT_DISTANCE;
+  });
 }
 
 async function generateFollowUps(
@@ -83,6 +111,7 @@ async function generateFollowUps(
   citations: Citation[],
 ): Promise<string[]> {
   if (!citations.length) return [];
+  if (answer === NOT_FOUND_ANSWER) return [];
 
   try {
     const openai = getOpenAI();
@@ -94,7 +123,7 @@ async function generateFollowUps(
         {
           role: "system",
           content:
-            "Suggest exactly 3 short follow-up questions the user might ask next, grounded in the answer and sources. Return JSON only: {\"followUps\":[\"...\"]}",
+            'Suggest exactly 3 short follow-up questions the user might ask next, grounded in the answer and sources. Return JSON only: {"followUps":["..."]}',
         },
         {
           role: "user",
@@ -134,22 +163,10 @@ export async function answerWithRag(
       ? Math.max(...matches.map((m) => m.similarity ?? 0))
       : 0;
 
-  if (matches.length === 0) {
-    return {
-      answer: "I couldn't find this information.",
-      citations: [],
-      confidence: 0,
-      confidenceLevel: "none",
-      followUps: [],
-    };
-  }
-
-  const context = matches
-    .map(
-      (m, i) =>
-        `[${i + 1}] Source: ${m.document_name}, Page ${m.page_number ?? "n/a"}\n${m.content}`,
-    )
-    .join("\n\n");
+  const context =
+    matches.length > 0
+      ? buildContextBlock(matches)
+      : "(No relevant documents were found in the knowledge base for this query.)";
 
   const openai = getOpenAI();
   const env = getEnv();
@@ -158,13 +175,7 @@ export async function answerWithRag(
     model: env.OPENAI_CHAT_MODEL,
     temperature: 0.2,
     messages: [
-      {
-        role: "system",
-        content:
-          "Answer ONLY using the provided context. " +
-          'If the answer does not exist in the context, say: "I couldn\'t find this information." ' +
-          "Always mention source filename and page number when available, like (Source: file.pdf, Page N).",
-      },
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
         content: `Context:\n${context}\n\nQuestion: ${query}`,
@@ -173,14 +184,18 @@ export async function answerWithRag(
   });
 
   const answer =
-    completion.choices[0]?.message?.content?.trim() || "No answer generated.";
-  const followUps = await generateFollowUps(query, answer, citations);
+    completion.choices[0]?.message?.content?.trim() || NOT_FOUND_ANSWER;
+
+  const isNotFound = answer === NOT_FOUND_ANSWER;
+  const finalCitations = isNotFound ? [] : citations;
+  const finalConfidence = isNotFound ? 0 : confidence;
+  const followUps = await generateFollowUps(query, answer, finalCitations);
 
   return {
     answer,
-    citations,
-    confidence,
-    confidenceLevel: confidenceLevel(confidence),
+    citations: finalCitations,
+    confidence: finalConfidence,
+    confidenceLevel: confidenceLevel(finalConfidence),
     followUps,
   };
 }

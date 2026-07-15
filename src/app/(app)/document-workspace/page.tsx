@@ -13,10 +13,15 @@ export default async function DocumentWorkspacePage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Document workspace</h1>
-        <p className="text-sm text-zinc-500">
-          Select a document to summarize, extract metadata, or ask scoped questions.
+      <div className="space-y-2">
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+          Documents
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Document Workspace</h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
+          Browse indexed files from the knowledge base. Summarize a policy,
+          extract structured metadata, or ask questions scoped to a single
+          document — answers still include citations when sources exist.
         </p>
       </div>
       <DocumentWorkspace documents={documents ?? []} />

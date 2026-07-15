@@ -48,10 +48,14 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Admin settings</h1>
-        <p className="text-sm text-zinc-500">
-          Upload documents, manage collections, users, and usage analytics.
+      <div className="space-y-2">
+        <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
+          Administration
+        </p>
+        <h1 className="text-2xl font-bold tracking-tight">Admin Settings</h1>
+        <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
+          Keep the knowledge base healthy: upload and reindex PDFs/DOCX, organize
+          collections, provision viewers and admins, and review usage analytics.
         </p>
       </div>
 

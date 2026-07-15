@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DocViewerModal } from "@/components/document/doc-viewer-modal";
+import { selectFieldClassName } from "@/lib/field-styles";
 
 type SearchResult = {
   document_id: string;
@@ -76,7 +77,7 @@ export function SearchBar() {
         <CardContent className="space-y-4">
           <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
             <select
-              className="h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm sm:w-48"
+              className={`${selectFieldClassName} h-10 sm:w-48`}
               value={collectionId}
               onChange={(e) => setCollectionId(e.target.value)}
             >
@@ -99,13 +100,13 @@ export function SearchBar() {
               Search
             </Button>
           </form>
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
           <div className="space-y-2">
             {results.map((r) => (
               <button
                 key={`${r.document_id}-${r.page}-${r.snippet.slice(0, 24)}`}
                 type="button"
-                className="w-full rounded-lg border border-zinc-200 p-3 text-left text-sm transition-colors hover:border-zinc-400 hover:bg-zinc-50"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-surface-muted"
                 onClick={() =>
                   setViewer({
                     documentId: r.document_id,
@@ -114,9 +115,9 @@ export function SearchBar() {
                   })
                 }
               >
-                <p className="font-medium">{r.citation}</p>
-                <p className="mt-1 text-zinc-600">{r.snippet}</p>
-                <p className="mt-1 text-xs text-zinc-400">
+                <p className="font-medium text-foreground">{r.citation}</p>
+                <p className="mt-1 text-text-secondary">{r.snippet}</p>
+                <p className="mt-1 text-xs text-text-secondary/80">
                   Similarity: {(r.similarity * 100).toFixed(1)}% · Click to open
                 </p>
               </button>

@@ -68,16 +68,16 @@ export function DocViewerModal({
       : state?.url;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-foreground">
               {state?.documentName ?? "Document"}
               {page != null ? ` · Page ${page}` : ""}
             </p>
             {snippet ? (
-              <p className="mt-1 line-clamp-1 text-xs text-zinc-500">{snippet}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-text-secondary">{snippet}</p>
             ) : null}
           </div>
           <div className="flex items-center gap-2">
@@ -102,21 +102,21 @@ export function DocViewerModal({
             </Button>
           </div>
         </div>
-        <div className="flex-1 bg-zinc-50">
+        <div className="flex-1 bg-surface-muted/40">
           {loading ? (
-            <p className="p-6 text-sm text-zinc-500">Loading document…</p>
+            <p className="p-6 text-sm text-text-secondary">Loading document…</p>
           ) : null}
-          {error ? <p className="p-6 text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="p-6 text-sm text-danger">{error}</p> : null}
           {state?.fileType === "pdf" && viewerUrl ? (
             <iframe title={state.documentName} src={viewerUrl} className="h-full w-full border-0" />
           ) : null}
           {state?.fileType === "docx" && state.url ? (
             <div className="space-y-4 p-6">
-              <p className="text-sm text-zinc-600">
+              <p className="text-sm text-text-secondary">
                 In-browser DOCX preview is limited. Download the file, or use the cited snippet below.
               </p>
               {snippet ? (
-                <blockquote className="rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-700">
+                <blockquote className="rounded-xl border border-border bg-surface p-4 text-sm text-foreground">
                   {snippet}
                 </blockquote>
               ) : null}

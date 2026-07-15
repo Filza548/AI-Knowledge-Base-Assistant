@@ -1,5 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
+import { FileText } from "lucide-react";
+
 type Citation = {
   document_id: string;
   document_name: string;
@@ -17,22 +20,29 @@ export function CitationCard({
   const interactive = Boolean(onOpen);
 
   return (
-    <button
+    <motion.button
       type="button"
       disabled={!interactive}
       onClick={() => onOpen?.(citation)}
-      className={`w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs text-zinc-700 transition-colors ${
-        interactive ? "cursor-pointer hover:border-zinc-400 hover:bg-white" : ""
+      whileHover={interactive ? { y: -2, scale: 1.01 } : undefined}
+      whileTap={interactive ? { scale: 0.99 } : undefined}
+      className={`w-full rounded-xl border border-border bg-surface-muted/70 px-3 py-2.5 text-left text-xs text-foreground transition-colors ${
+        interactive
+          ? "cursor-pointer hover:border-primary/40 hover:bg-surface hover:shadow-sm hover:shadow-primary/10"
+          : ""
       }`}
     >
-      <p className="font-medium">
+      <p className="flex items-center gap-1.5 font-semibold">
+        <FileText className="h-3.5 w-3.5 text-primary" />
         {citation.document_name}
-        {citation.page != null ? ` · Page ${citation.page}` : ""}
+        {citation.page != null ? (
+          <span className="font-medium text-accent"> · Page {citation.page}</span>
+        ) : null}
         {interactive ? (
-          <span className="ml-2 font-normal text-zinc-400">Open source</span>
+          <span className="ml-auto font-normal text-text-secondary">Open</span>
         ) : null}
       </p>
-      <p className="mt-1 line-clamp-2 text-zinc-500">{citation.snippet}</p>
-    </button>
+      <p className="mt-1.5 line-clamp-2 text-text-secondary">{citation.snippet}</p>
+    </motion.button>
   );
 }

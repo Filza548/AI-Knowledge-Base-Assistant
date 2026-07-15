@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { selectFieldClassName } from "@/lib/field-styles";
 
 type UserRow = {
   id: string;
@@ -67,7 +68,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
           minLength={10}
         />
         <select
-          className="h-10 rounded-md border border-zinc-200 bg-white px-3 text-sm"
+          className={selectFieldClassName}
           value={role}
           onChange={(e) => setRole(e.target.value as "viewer" | "admin")}
         >
@@ -78,17 +79,17 @@ export function UserManager({ users }: { users: UserRow[] }) {
           {loading ? "Creating…" : "Create user"}
         </Button>
       </form>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <div className="space-y-2">
         {users.map((u) => (
           <div
             key={u.id}
-            className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 text-sm"
+            className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm"
           >
             <div>
-              <p className="font-medium">{u.name}</p>
-              <p className="text-zinc-500">{u.email}</p>
+              <p className="font-medium text-foreground">{u.name}</p>
+              <p className="text-text-secondary">{u.email}</p>
             </div>
             <Badge className="uppercase">{u.role}</Badge>
           </div>

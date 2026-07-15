@@ -117,10 +117,13 @@ export function CollectionManager({
 
   return (
     <div className="space-y-6">
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <form onSubmit={createCollection} className="space-y-3 rounded-lg border border-zinc-200 p-4">
-        <p className="text-sm font-medium">Create collection</p>
+      <form
+        onSubmit={createCollection}
+        className="space-y-3 rounded-2xl border border-border bg-surface p-4"
+      >
+        <p className="text-sm font-medium text-foreground">Create collection</p>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -132,9 +135,12 @@ export function CollectionManager({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description (optional)"
         />
-        <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border border-zinc-100 p-2">
+        <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border bg-surface-muted/50 p-2">
           {readyDocs.map((d) => (
-            <label key={d.id} className="flex items-center gap-2 text-sm">
+            <label
+              key={d.id}
+              className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface"
+            >
               <input
                 type="checkbox"
                 checked={selectedDocs.includes(d.id)}
@@ -144,7 +150,7 @@ export function CollectionManager({
             </label>
           ))}
           {!readyDocs.length ? (
-            <p className="text-xs text-zinc-500">No ready documents yet.</p>
+            <p className="text-xs text-text-secondary">No ready documents yet.</p>
           ) : null}
         </div>
         <Button type="submit" disabled={busy || !name.trim()}>
@@ -156,13 +162,13 @@ export function CollectionManager({
         {collections.map((c) => (
           <div
             key={c.id}
-            className="rounded-lg border border-zinc-200 bg-white px-4 py-3"
+            className="rounded-2xl border border-border bg-surface px-4 py-3"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-medium">{c.name}</p>
+                <p className="text-sm font-medium text-foreground">{c.name}</p>
                 {c.description ? (
-                  <p className="text-xs text-zinc-500">{c.description}</p>
+                  <p className="text-xs text-text-secondary">{c.description}</p>
                 ) : null}
                 <div className="mt-2">
                   <Badge>{c.document_count} docs</Badge>
@@ -191,10 +197,13 @@ export function CollectionManager({
               </div>
             </div>
             {editingId === c.id ? (
-              <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
+              <div className="mt-3 space-y-2 border-t border-border pt-3">
                 <div className="max-h-40 space-y-1 overflow-y-auto">
                   {readyDocs.map((d) => (
-                    <label key={d.id} className="flex items-center gap-2 text-sm">
+                    <label
+                      key={d.id}
+                      className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface-muted"
+                    >
                       <input
                         type="checkbox"
                         checked={selectedDocs.includes(d.id)}
@@ -216,7 +225,7 @@ export function CollectionManager({
           </div>
         ))}
         {!collections.length ? (
-          <p className="text-sm text-zinc-500">No collections yet.</p>
+          <p className="text-sm text-text-secondary">No collections yet.</p>
         ) : null}
       </div>
     </div>

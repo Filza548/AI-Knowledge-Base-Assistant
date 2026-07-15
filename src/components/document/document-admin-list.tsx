@@ -53,20 +53,22 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
 
   return (
     <div className="space-y-3">
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
       {documents.map((doc) => (
         <div
           key={doc.id}
-          className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-4 py-3"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
         >
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{doc.document_name}</p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {doc.document_name}
+            </p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <Badge>{doc.file_type}</Badge>
               <Badge>{doc.status}</Badge>
             </div>
             {doc.status === "failed" && doc.error_message ? (
-              <p className="mt-1 text-xs text-red-600">{doc.error_message}</p>
+              <p className="mt-1 text-xs text-danger">{doc.error_message}</p>
             ) : null}
           </div>
           <div className="flex shrink-0 gap-2">
@@ -94,7 +96,7 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
         </div>
       ))}
       {!documents.length ? (
-        <p className="text-sm text-zinc-500">No documents uploaded yet.</p>
+        <p className="text-sm text-text-secondary">No documents uploaded yet.</p>
       ) : null}
     </div>
   );

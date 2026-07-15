@@ -5,15 +5,10 @@ import { applySecurityHeaders } from "@/lib/security/headers";
 
 const { auth } = NextAuth(authConfig);
 
-const publicPaths = ["/login", "/api/auth"];
-
 export default auth((req) => {
   const { pathname } = req.nextUrl;
-  const isPublic = publicPaths.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
 
-  if (!req.auth && !isPublic && !pathname.startsWith("/_next")) {
+  if (!req.auth) {
     if (pathname.startsWith("/api/")) {
       const res = NextResponse.json(
         { error: "Unauthorized", code: "unauthorized" },
@@ -27,10 +22,6 @@ export default auth((req) => {
     return NextResponse.redirect(url);
   }
 
-  if (req.auth && pathname === "/login") {
-    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
-  }
-
   if (
     pathname.startsWith("/admin-settings") &&
     req.auth?.user?.role !== "admin"
@@ -41,8 +32,9 @@ export default auth((req) => {
   return applySecurityHeaders(NextResponse.next());
 });
 
+// Exclude Auth.js routes + login so the auth() wrapper cannot 404 them.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

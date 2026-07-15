@@ -1,39 +1,7 @@
-import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { chunkPages } from "@/lib/documents/chunking";
+import { parseDocument } from "@/lib/documents/document-parser";
 import { embedTexts } from "@/lib/openai/client";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-
-/** LangChain splitter — ~1000 chars with overlap (MVP-friendly chunking). */
-export async function chunkText(text: string): Promise<string[]> {
-  const cleaned = text.replace(/\r\n/g, "\n").replace(/\t/g, " ").trim();
-  if (!cleaned) return [];
-
-  const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 200,
-  });
-
-  return splitter.splitText(cleaned);
-}
-
-export async function extractTextFromBuffer(
-  buffer: Buffer,
-  fileType: "pdf" | "docx",
-): Promise<string> {
-  if (fileType === "pdf") {
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: buffer });
-    try {
-      const result = await parser.getText();
-      return result.text ?? "";
-    } finally {
-      await parser.destroy();
-    }
-  }
-
-  const mammoth = await import("mammoth");
-  const result = await mammoth.extractRawText({ buffer });
-  return result.value ?? "";
-}
 
 export async function indexDocument(
   documentId: string,
@@ -43,8 +11,8 @@ export async function indexDocument(
   const supabase = getSupabaseAdmin();
 
   try {
-    const text = await extractTextFromBuffer(buffer, fileType);
-    const chunks = await chunkText(text);
+    const pages = await parseDocument(buffer, fileType);
+    const chunks = chunkPages(pages);
 
     if (chunks.length === 0) {
       await supabase
@@ -57,15 +25,15 @@ export async function indexDocument(
       return;
     }
 
-    const embeddings = await embedTexts(chunks);
+    const embeddings = await embedTexts(chunks.map((c) => c.text));
 
     await supabase.from("document_chunks").delete().eq("document_id", documentId);
 
-    const rows = chunks.map((content, index) => ({
+    const rows = chunks.map((chunk, index) => ({
       document_id: documentId,
-      chunk_index: index,
-      content,
-      page_number: null as number | null,
+      chunk_index: chunk.chunkIndex ?? index,
+      content: chunk.text,
+      page_number: chunk.pageNumber,
       embedding: embeddings[index],
     }));
 

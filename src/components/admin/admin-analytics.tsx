@@ -37,8 +37,8 @@ export function AdminAnalytics() {
       );
   }, []);
 
-  if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!data) return <p className="text-sm text-zinc-500">Loading analytics…</p>;
+  if (error) return <p className="text-sm text-danger">{error}</p>;
+  if (!data) return <p className="text-sm text-text-secondary">Loading analytics…</p>;
 
   const { stats } = data;
 
@@ -62,12 +62,12 @@ export function AdminAnalytics() {
                 key={q.query}
                 className="flex items-center justify-between gap-3 text-sm"
               >
-                <span className="truncate">{q.query}</span>
+                <span className="truncate text-foreground">{q.query}</span>
                 <Badge>{q.count}</Badge>
               </div>
             ))}
             {!data.topQueries.length ? (
-              <p className="text-sm text-zinc-500">No queries yet.</p>
+              <p className="text-sm text-text-secondary">No queries yet.</p>
             ) : null}
           </CardContent>
         </Card>
@@ -82,12 +82,12 @@ export function AdminAnalytics() {
                 key={d.id}
                 className="flex items-center justify-between gap-3 text-sm"
               >
-                <span className="truncate">{d.name}</span>
+                <span className="truncate text-foreground">{d.name}</span>
                 <Badge>{d.count}</Badge>
               </div>
             ))}
             {!data.topDocuments.length ? (
-              <p className="text-sm text-zinc-500">No citations yet.</p>
+              <p className="text-sm text-text-secondary">No citations yet.</p>
             ) : null}
           </CardContent>
         </Card>
@@ -100,15 +100,17 @@ export function AdminAnalytics() {
         <CardContent className="space-y-2">
           {data.recentUnanswered.map((r, i) => (
             <div key={`${r.timestamp}-${i}`} className="text-sm">
-              <p className="font-medium">{r.query}</p>
-              <p className="text-xs text-zinc-400">
+              <p className="font-medium text-foreground">{r.query}</p>
+              <p className="text-xs text-text-secondary">
                 {new Date(r.timestamp).toLocaleString()}
                 {r.source ? ` · ${r.source}` : ""}
               </p>
             </div>
           ))}
           {!data.recentUnanswered.length ? (
-            <p className="text-sm text-zinc-500">No unanswered queries in the last 7 days.</p>
+            <p className="text-sm text-text-secondary">
+              No unanswered queries in the last 7 days.
+            </p>
           ) : null}
         </CardContent>
       </Card>
@@ -118,9 +120,11 @@ export function AdminAnalytics() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+    <div className="rounded-2xl border border-border bg-surface px-4 py-3">
+      <p className="text-xs text-text-secondary">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+        {value}
+      </p>
     </div>
   );
 }

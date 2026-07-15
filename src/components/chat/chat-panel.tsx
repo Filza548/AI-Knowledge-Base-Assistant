@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
   Copy,
@@ -16,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CitationCard } from "@/components/chat/citation-card";
 import { DocViewerModal } from "@/components/document/doc-viewer-modal";
+import { LogoMark } from "@/components/brand/logo-mark";
+import { selectFieldClassName } from "@/lib/field-styles";
 import type { Citation, ConfidenceLevel, ConversationSummary } from "@/types";
 
 type Message = {
@@ -48,6 +51,13 @@ function confidenceLabel(level: ConfidenceLevel) {
   return "No sources";
 }
 
+function confidenceClass(level: ConfidenceLevel) {
+  if (level === "high") return "border-accent/30 bg-accent/15 text-accent";
+  if (level === "medium") return "border-primary/30 bg-primary/10 text-primary";
+  if (level === "low") return "border-warning/30 bg-warning/10 text-warning";
+  return "";
+}
+
 function exportMarkdown(content: string, citations?: Citation[]) {
   const lines = [
     content,
@@ -67,6 +77,21 @@ function exportMarkdown(content: string, citations?: Citation[]) {
   a.download = "answer.md";
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-2 text-sm text-text-secondary">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">
+        <Bot className="h-4 w-4" />
+      </div>
+      <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface px-3 py-2">
+        <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary" />
+      </div>
+    </div>
+  );
 }
 
 export function ChatPanel({
@@ -216,12 +241,21 @@ export function ChatPanel({
     await sendQuery(query);
   }
 
+  const chips =
+    suggestions.length > 0
+      ? suggestions
+      : [
+          "What is the leave policy?",
+          "Summarize onboarding steps",
+          "Where is the reimbursement process?",
+        ];
+
   return (
     <>
-      <div className={`grid gap-4 ${showHistory ? "lg:grid-cols-[220px_1fr]" : ""}`}>
+      <div className={`grid gap-4 ${showHistory ? "lg:grid-cols-[240px_1fr]" : ""}`}>
         {showHistory ? (
           <Card className="h-[calc(100vh-10rem)] overflow-hidden">
-            <CardHeader className="space-y-3 border-b border-zinc-100 p-4">
+            <CardHeader className="space-y-3 border-b border-border p-4">
               <CardTitle className="text-base">Chats</CardTitle>
               <Button size="sm" className="w-full" onClick={startNewChat}>
                 <MessageSquarePlus className="h-4 w-4" />
@@ -232,10 +266,10 @@ export function ChatPanel({
               {conversations.map((c) => (
                 <div
                   key={c.id}
-                  className={`group flex items-center gap-1 rounded-lg px-2 py-2 text-sm ${
+                  className={`group flex items-center gap-1 rounded-xl px-2 py-2 text-sm transition-colors ${
                     conversationId === c.id
-                      ? "bg-zinc-900 text-white"
-                      : "hover:bg-zinc-100"
+                      ? "bg-primary text-white"
+                      : "hover:bg-surface-muted"
                   }`}
                 >
                   <button
@@ -247,10 +281,10 @@ export function ChatPanel({
                   </button>
                   <button
                     type="button"
-                    className={`shrink-0 rounded p-1 opacity-0 group-hover:opacity-100 ${
+                    className={`shrink-0 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 ${
                       conversationId === c.id
-                        ? "hover:bg-zinc-700"
-                        : "hover:bg-zinc-200"
+                        ? "hover:bg-primary-hover"
+                        : "hover:bg-border"
                     }`}
                     onClick={() => deleteConversation(c.id)}
                     aria-label="Delete conversation"
@@ -260,23 +294,25 @@ export function ChatPanel({
                 </div>
               ))}
               {!conversations.length ? (
-                <p className="px-2 py-4 text-xs text-zinc-500">No saved chats yet.</p>
+                <p className="px-2 py-4 text-xs text-text-secondary">
+                  No saved chats yet.
+                </p>
               ) : null}
             </CardContent>
           </Card>
         ) : null}
 
-        <Card className="flex h-[calc(100vh-10rem)] flex-col">
-          <CardHeader className="border-b border-zinc-100 space-y-3">
+        <Card className="flex h-[calc(100vh-10rem)] flex-col overflow-hidden">
+          <CardHeader className="space-y-3 border-b border-border">
             <div>
               <CardTitle>Knowledge Chat</CardTitle>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-text-secondary">
                 Ask questions — answers cite your uploaded documents.
               </p>
             </div>
             {showCollectionPicker && !documentId ? (
               <select
-                className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm"
+                className={`${selectFieldClassName} h-10`}
                 value={collectionId}
                 onChange={(e) => setCollectionId(e.target.value)}
                 disabled={Boolean(conversationId)}
@@ -294,123 +330,162 @@ export function ChatPanel({
           <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden p-0">
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
               {messages.length === 0 ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-zinc-500">Try asking:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(suggestions.length ? suggestions : ["What is the leave policy?"]).map(
-                      (s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => sendQuery(s)}
-                          className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-left text-xs text-zinc-700 hover:border-zinc-400 hover:bg-white"
-                        >
-                          {s}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
-              ) : null}
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex flex-col items-center justify-center gap-5 py-10 text-center"
                 >
-                  {m.role === "assistant" ? (
-                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white">
-                      <Bot className="h-4 w-4" />
-                    </div>
-                  ) : null}
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      m.role === "user"
-                        ? "bg-zinc-900 text-white"
-                        : "border border-zinc-200 bg-white text-zinc-800"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{m.content}</p>
-                    {m.role === "assistant" ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-100 pt-3">
-                        <Badge>
-                          {confidenceLabel(m.confidenceLevel ?? "none")}
-                          {m.confidence != null && m.confidence > 0
-                            ? ` · ${(m.confidence * 100).toFixed(0)}%`
-                            : ""}
-                        </Badge>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigator.clipboard.writeText(m.content)}
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                          Copy
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => exportMarkdown(m.content, m.citations)}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Export
-                        </Button>
-                      </div>
-                    ) : null}
-                    {m.citations && m.citations.length > 0 ? (
-                      <div className="mt-3 space-y-2 border-t border-zinc-100 pt-3">
-                        <Badge>Sources</Badge>
-                        {m.citations.map((c) => (
-                          <CitationCard
-                            key={`${c.document_id}-${c.page}-${c.snippet.slice(0, 12)}`}
-                            citation={c}
-                            onOpen={(citation) =>
-                              setViewer({
-                                documentId: citation.document_id,
-                                page: citation.page,
-                                snippet: citation.snippet,
-                              })
-                            }
-                          />
-                        ))}
-                      </div>
-                    ) : null}
-                    {m.followUps && m.followUps.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
-                        {m.followUps.map((f) => (
-                          <button
-                            key={f}
-                            type="button"
-                            disabled={loading}
-                            onClick={() => sendQuery(f)}
-                            className="rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 hover:bg-white"
-                          >
-                            {f}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
+                  <LogoMark size={56} animated />
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold tracking-tight">
+                      Ask the knowledge base
+                    </p>
+                    <p className="max-w-md text-sm text-text-secondary">
+                      The knowledge base is ready. Ask about policies, SOPs, or
+                      product docs.
+                    </p>
                   </div>
-                  {m.role === "user" ? (
-                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200">
-                      <User className="h-4 w-4" />
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-              {loading ? (
-                <p className="text-sm text-zinc-500">Searching knowledge base…</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {chips.map((s, i) => (
+                      <motion.button
+                        key={s}
+                        type="button"
+                        custom={i}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 + i * 0.07 }}
+                        onClick={() => sendQuery(s)}
+                        className="rounded-full border border-border bg-surface-muted px-3.5 py-1.5 text-left text-xs text-foreground transition hover:border-primary/40 hover:bg-surface hover:shadow-sm"
+                      >
+                        {s}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
               ) : null}
-              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+              <AnimatePresence initial={false}>
+                {messages.map((m) => (
+                  <motion.div
+                    key={m.id}
+                    initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{ duration: 0.35 }}
+                    className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {m.role === "assistant" ? (
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                        <Bot className="h-4 w-4" />
+                      </div>
+                    ) : null}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                        m.role === "user"
+                          ? "bg-chat-user text-foreground"
+                          : "border border-border bg-chat-assistant text-foreground"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      {m.role === "assistant" ? (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3"
+                        >
+                          <Badge
+                            className={confidenceClass(
+                              m.confidenceLevel ?? "none",
+                            )}
+                          >
+                            {confidenceLabel(m.confidenceLevel ?? "none")}
+                            {m.confidence != null && m.confidence > 0
+                              ? ` · ${(m.confidence * 100).toFixed(0)}%`
+                              : ""}
+                          </Badge>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigator.clipboard.writeText(m.content)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                            Copy
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => exportMarkdown(m.content, m.citations)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Export
+                          </Button>
+                        </motion.div>
+                      ) : null}
+                      {m.citations && m.citations.length > 0 ? (
+                        <div className="mt-3 space-y-2 border-t border-border pt-3">
+                          <Badge className="border-primary/20 bg-primary/10 text-primary">
+                            Sources
+                          </Badge>
+                          {m.citations.map((c, idx) => (
+                            <motion.div
+                              key={`${c.document_id}-${c.page}-${c.snippet.slice(0, 12)}`}
+                              initial={{ opacity: 0, y: 8 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: 0.05 * idx }}
+                            >
+                              <CitationCard
+                                citation={c}
+                                onOpen={(citation) =>
+                                  setViewer({
+                                    documentId: citation.document_id,
+                                    page: citation.page,
+                                    snippet: citation.snippet,
+                                  })
+                                }
+                              />
+                            </motion.div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {m.followUps && m.followUps.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                          {m.followUps.map((f, i) => (
+                            <motion.button
+                              key={f}
+                              type="button"
+                              disabled={loading}
+                              initial={{ opacity: 0, scale: 0.92 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: 0.08 * i }}
+                              onClick={() => sendQuery(f)}
+                              className="rounded-full border border-border bg-surface-muted px-3 py-1 text-xs text-foreground hover:border-primary/40 hover:bg-surface"
+                            >
+                              {f}
+                            </motion.button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    {m.role === "user" ? (
+                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted">
+                        <User className="h-4 w-4" />
+                      </div>
+                    ) : null}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {loading ? <TypingIndicator /> : null}
+              {error ? <p className="text-sm text-danger">{error}</p> : null}
             </div>
 
-            <form onSubmit={onSubmit} className="border-t border-zinc-100 p-4">
+            <form onSubmit={onSubmit} className="border-t border-border p-4">
               <div className="flex gap-2">
                 <Textarea
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ask about company policies, processes, docs…"
+                  placeholder="Ask the knowledge base…"
                   className="min-h-[52px] resize-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -423,8 +498,15 @@ export function ChatPanel({
                   type="submit"
                   disabled={loading || !query.trim()}
                   className="h-[52px] px-4"
+                  aria-label="Send"
                 >
-                  <Send className="h-4 w-4" />
+                  <motion.span
+                    animate={loading ? { rotate: 180 } : { rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                    className="inline-flex"
+                  >
+                    <Send className="h-4 w-4" />
+                  </motion.span>
                 </Button>
               </div>
             </form>

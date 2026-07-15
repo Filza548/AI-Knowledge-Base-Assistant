@@ -101,22 +101,24 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       <div
         {...getRootProps()}
         className={cn(
-          "cursor-pointer rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center transition-colors",
-          isDragActive && "border-zinc-900 bg-zinc-100",
+          "cursor-pointer rounded-2xl border border-dashed border-border bg-surface-muted/60 p-10 text-center transition-all",
+          isDragActive && "upload-pulse border-primary bg-primary/5 shadow-sm shadow-primary/10",
         )}
       >
         <input {...getInputProps()} />
-        <UploadCloud className="mx-auto mb-3 h-8 w-8 text-zinc-400" />
-        <p className="text-sm font-medium">
-          {isDragActive ? "Drop file here" : "Drag & drop PDF or DOCX"}
+        <UploadCloud className="mx-auto mb-3 h-8 w-8 text-primary" />
+        <p className="text-sm font-semibold">
+          {isDragActive
+            ? "Drop file here"
+            : "Drop PDFs or DOCX — we’ll index them for search and chat"}
         </p>
-        <p className="mt-1 text-xs text-zinc-500">Max 20MB</p>
+        <p className="mt-1 text-xs text-text-secondary">Max 20MB · PDF / DOCX</p>
       </div>
 
       {file ? (
-        <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm shadow-sm">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 text-primary" />
             <span>{file.name}</span>
           </div>
           <Button onClick={upload} disabled={busy}>
@@ -133,14 +135,14 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       ) : null}
 
       {busy ? (
-        <div className="h-2 overflow-hidden rounded-full bg-zinc-100">
-          <div className="h-full w-2/3 animate-pulse rounded-full bg-zinc-900" />
+        <div className="h-2 overflow-hidden rounded-full bg-surface-muted">
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-primary" />
         </div>
       ) : null}
 
       {error ? (
         <div className="space-y-2">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-danger">{error}</p>
           {lastFailedId ? (
             <Button size="sm" variant="outline" onClick={retryReindex} disabled={busy}>
               Retry reindex
@@ -148,7 +150,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
           ) : null}
         </div>
       ) : null}
-      {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+      {message ? <p className="text-sm text-success">{message}</p> : null}
     </div>
   );
 }
