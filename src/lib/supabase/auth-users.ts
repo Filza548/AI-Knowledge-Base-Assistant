@@ -9,6 +9,15 @@ type UpsertAuthUserInput = {
   role: string;
 };
 
+type UpsertOAuthUserInput = {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  image?: string | null;
+  provider?: string;
+};
+
 /**
  * Create or update a user in Supabase Auth (Authentication → Users),
  * keeping the same UUID as public.users.
@@ -71,6 +80,93 @@ export async function upsertSupabaseAuthUser(
   }
 
   throw error ?? new Error("Failed to create Supabase Auth user");
+}
+
+/**
+ * Mirror a Google (or other OAuth) login into Supabase Auth → Users.
+ * No password required; email is marked confirmed.
+ */
+export async function upsertSupabaseOAuthUser(
+  input: UpsertOAuthUserInput,
+  client?: SupabaseClient,
+): Promise<User> {
+  const supabase = client ?? getSupabaseAdmin();
+  const email = input.email.toLowerCase().trim();
+  const provider = input.provider ?? "google";
+  const metadata = {
+    name: input.name,
+    role: input.role,
+    avatar_url: input.image ?? undefined,
+    provider,
+  };
+
+  const { data: existingById, error: getError } =
+    await supabase.auth.admin.getUserById(input.id);
+
+  if (!getError && existingById.user) {
+    const { data, error } = await supabase.auth.admin.updateUserById(input.id, {
+      email,
+      email_confirm: true,
+      user_metadata: {
+        ...existingById.user.user_metadata,
+        ...metadata,
+      },
+      app_metadata: {
+        ...existingById.user.app_metadata,
+        provider,
+        providers: Array.from(
+          new Set([
+            ...((existingById.user.app_metadata?.providers as string[]) ?? []),
+            provider,
+          ]),
+        ),
+      },
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error("Failed to update Supabase Auth OAuth user");
+    return data.user;
+  }
+
+  const { data, error } = await supabase.auth.admin.createUser({
+    id: input.id,
+    email,
+    email_confirm: true,
+    user_metadata: metadata,
+    app_metadata: {
+      provider,
+      providers: [provider],
+    },
+  });
+
+  if (!error && data.user) return data.user;
+
+  const existing = await findAuthUserByEmail(supabase, email);
+  if (existing) {
+    const { data: updated, error: updateError } =
+      await supabase.auth.admin.updateUserById(existing.id, {
+        email_confirm: true,
+        user_metadata: {
+          ...existing.user_metadata,
+          ...metadata,
+          app_user_id: input.id,
+        },
+        app_metadata: {
+          ...existing.app_metadata,
+          provider,
+          providers: Array.from(
+            new Set([
+              ...((existing.app_metadata?.providers as string[]) ?? []),
+              provider,
+            ]),
+          ),
+        },
+      });
+    if (updateError) throw updateError;
+    if (!updated.user) throw new Error("Failed to update Supabase Auth OAuth user");
+    return updated.user;
+  }
+
+  throw error ?? new Error("Failed to create Supabase Auth OAuth user");
 }
 
 async function findAuthUserByEmail(

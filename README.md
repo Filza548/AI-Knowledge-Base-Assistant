@@ -57,6 +57,29 @@ flowchart LR
   API --> ST[Supabase Storage documents]
 ```
 
+### Google SSO flow (Auth.js → Supabase mirror)
+
+Google login is handled by **Auth.js**, not by Supabase Auth’s built-in Google provider. After a successful Google OAuth callback the app:
+
+1. Finds or creates a row in `public.users` (default role `viewer`, no password hash).
+2. Mirrors that user into **Supabase → Authentication → Users** via the Admin API (`SUPABASE_SERVICE_ROLE_KEY`), with `app_metadata.provider = google`.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant App as Next.js / Auth.js
+  participant G as Google OAuth
+  participant DB as public.users
+  participant SA as Supabase Auth Users
+
+  U->>App: Continue with Google
+  App->>G: OAuth redirect
+  G->>App: callback /api/auth/callback/google
+  App->>DB: find or insert viewer
+  App->>SA: admin create/update user
+  App->>U: JWT session cookie
+```
+
 ### RAG pipeline (current implementation)
 
 1. **Parse** — PDF page-by-page (`pdf-parse`) or DOCX (`mammoth`).
@@ -74,7 +97,8 @@ Auth gate runs in [`src/proxy.ts`](src/proxy.ts) (Next.js 16 proxy convention). 
 
 | Feature | Main routes / UI | Primary data |
 |---------|------------------|--------------|
-| Sign in / session | `/login`, `/api/auth/[...nextauth]` | `users` (+ Auth.js JWT cookie) |
+| Sign in / session | `/login`, `/api/auth/[...nextauth]` | `users` + Auth.js JWT; Google also mirrored to Supabase Auth Users |
+| Google SSO | `signIn("google")` → Auth.js Google provider | `users` (viewer) + Supabase Auth Admin upsert |
 | RAG chat | Dashboard → `POST /api/chat` | `document_chunks`, `conversations`, `messages`, `search_logs` |
 | Semantic search | `POST /api/search` | `document_chunks` via `match_document_chunks` |
 | Suggestions | `GET /api/suggestions` | derived from KB / heuristics |
@@ -119,7 +143,7 @@ Copy [`.env.example`](.env.example) → `.env.local`:
 | `OPENAI_API_KEY` | OpenAI | Embeddings + chat + summarize/extract |
 | `OPENAI_CHAT_MODEL` | OpenAI | Default `gpt-4o-mini` |
 | `OPENAI_EMBEDDING_MODEL` | OpenAI | Default `text-embedding-3-small` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional OAuth | Google sign-in (user must already exist in `users`) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google SSO | Shows **Continue with Google** on login; creates `viewer` in `public.users` + mirrors to Supabase Auth |
 
 No secrets belong in git — only `.env.example` is committed.
 
@@ -142,7 +166,8 @@ src/
     brand/ chat/ dashboard/ sidebar/ document/ admin/ uploader/ ui/
   lib/
     auth.ts openai/rag.ts documents/{indexer,chunking,document-parser}.ts
-    supabase/ security/ validations.ts
+    supabase/{admin,auth-users}.ts  # service-role client + Auth Users mirror
+    security/ validations.ts
 public/images/             # Intro / hero illustrations
 supabase/migrations/
 scripts/seed-admin.ts
@@ -152,24 +177,130 @@ scripts/seed-admin.ts
 
 ## Setup
 
-1. **Supabase** — run both SQL migrations in the SQL Editor. Create private Storage bucket `documents` if the migration does not.
-2. **Env** — fill `.env.local` from `.env.example`.
-3. **Install & run**
-   ```bash
-   npm install
-   npm run seed:admin
-   npm run dev
-   ```
-4. Open [http://localhost:3000/login](http://localhost:3000/login)  
-   Default admin: `admin@example.com` / `ChangeMeNow1!` (change in production).
-5. **Admin** → upload a PDF/DOCX → wait until status is `ready` → **Dashboard** → ask a question.  
-   Reindex old docs after chunking upgrades so `page_number` citations populate.
+### 1. Supabase project + env
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. **Project Settings → API** — copy:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (server only; never expose to the browser)
+3. Copy [`.env.example`](.env.example) → `.env.local` and fill all required keys (`AUTH_SECRET`, `ENCRYPTION_KEY`, OpenAI, Supabase).
+
+### 2. Run SQL migrations (important)
+
+In **SQL Editor**, paste the **file contents** — not the file path.
+
+| Wrong | Right |
+|-------|--------|
+| `supabase/migrations/001_initial.sql` | Open the file in the editor → `Ctrl+A` → copy → paste into SQL Editor → **Run** |
+
+Order:
+
+1. Paste and run [`001_initial.sql`](supabase/migrations/001_initial.sql) (creates `users`, KB tables, `vector` extension, `documents` bucket).
+2. Paste and run [`002_feature_wave.sql`](supabase/migrations/002_feature_wave.sql) (conversations, collections, enriched search).
+
+Confirm in **Table Editor** that `users.id` is type **uuid**.
+
+### 3. Grant schema permissions (new Supabase projects)
+
+If `npm run seed:admin` or Google login fails with:
+
+```text
+permission denied for schema public
+```
+
+run this once in the SQL Editor:
+
+```sql
+grant usage on schema public to postgres, anon, authenticated, service_role;
+
+grant all on all tables in schema public to postgres, anon, authenticated, service_role;
+grant all on all sequences in schema public to postgres, anon, authenticated, service_role;
+grant all on all routines in schema public to postgres, anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant all on tables to postgres, anon, authenticated, service_role;
+alter default privileges in schema public
+  grant all on sequences to postgres, anon, authenticated, service_role;
+alter default privileges in schema public
+  grant all on routines to postgres, anon, authenticated, service_role;
+```
+
+### 4. Install, seed, run
+
+```bash
+npm install
+npm run seed:admin
+npm run dev
+```
+
+Open [http://localhost:3000/login](http://localhost:3000/login).  
+Default admin: `admin@example.com` / `ChangeMeNow1!` (change in production).
+
+After changing `.env.local`, **fully restart** `npm run dev` (stop the old process — do not leave a second server on port 3001).
+
+### 5. Smoke test the product
+
+**Admin** → upload a PDF/DOCX → wait until status is `ready` → **Dashboard** → ask a question.  
+Reindex old docs after chunking upgrades so `page_number` citations populate.
+
+### Google Single Sign-On (optional)
+
+You do **not** need to enable Google under Supabase **Authentication → Providers**. Auth.js talks to Google; the app mirrors users into Supabase Auth with the service role.
+
+#### A. Google Cloud Console
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/) → create/select a project.
+2. Configure **OAuth consent screen** (External or Internal).
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID** → type **Web application**:
+   - **Authorized JavaScript origins:** `http://localhost:3000` (add your production URL later)
+   - **Authorized redirect URIs:** `http://localhost:3000/api/auth/callback/google` (and `https://YOUR_DOMAIN/api/auth/callback/google` in production)
+4. Copy **Client ID** and **Client secret** (`GOCSPX-…`).  
+   If the secret is hidden, use **Add secret** / **Reset secret**, then copy immediately.
+
+#### B. App env
+
+In `.env.local`:
+
+```env
+GOOGLE_CLIENT_ID=xxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxx
+AUTH_URL=http://localhost:3000
+```
+
+Restart `npm run dev`. Login shows **Continue with Google**.
+
+#### C. What gets created on first Google login
+
+| Place | What you see |
+|-------|----------------|
+| **Table Editor → `users`** | New row: Google email, `role = viewer`, `password_hash` null |
+| **Authentication → Users** | Same email; metadata includes `provider: google` |
+
+#### D. Quick verify
+
+1. Sign in with Google at `/login`.
+2. Supabase → **Authentication → Users** → refresh — email should appear.
+3. Supabase → **Table Editor → `users`** — matching viewer row.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| SQL error near `"supabase"` | Pasted file **path** instead of SQL | Paste file **contents** into SQL Editor |
+| `uploaded_by` / `id` incompatible types (`uuid` vs `text`) | Old `public.users` table with `id text` | Drop app tables (or recreate project) and re-run both migrations so `users.id` is **uuid** |
+| `permission denied for schema public` | New project missing grants | Run the **Grant schema permissions** SQL above |
+| Google → `AccessDenied` / empty `Google sign-in failed: {}` | Stale Next process or wrong env | Kill processes on ports 3000/3001, restart `npm run dev`, confirm `.env.local` points at the new Supabase project |
+| No **Continue with Google** button | Missing Google envs | Set both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`, restart |
+| User in `users` but not in Auth → Users | Admin Auth sync failed | Check terminal for `Supabase Auth Google sync failed`; confirm **service_role** key matches the project URL |
 
 ---
 
 ## Security (summary)
 
 - Short JWT sessions · RBAC (`viewer` / `admin`) · bcrypt passwords  
+- Optional Google SSO via Auth.js; mirrored into Supabase Auth with service role  
 - Zod validation · rate limits on sensitive APIs · AES file-path encryption  
 - Private Storage + service-role server access · security headers via proxy  
 
@@ -180,6 +311,7 @@ scripts/seed-admin.ts
 High-level delivery checklist:
 
 - [x] Auth.js credentials (+ optional Google) with role-based routes  
+- [x] Google SSO → auto-create `viewer` in `public.users` + mirror to Supabase Authentication → Users  
 - [x] Document upload → parse → page-aware chunk → embed → pgvector store  
 - [x] Dashboard RAG chat with citations, confidence, follow-ups, conversation history  
 - [x] Collections scoping · document workspace (summarize / extract / ask)  
@@ -187,6 +319,7 @@ High-level delivery checklist:
 - [x] Safa-style RAG upgrades (page numbers, distance cutoff, grounded prompt)  
 - [x] Premium UI: design tokens, dark mode, collapsible full-height sidebar, intro content + images  
 - [x] Dark-theme-safe forms/panels (no hard-coded white inputs on Admin/Dashboard)  
+- [x] Setup docs: migrations via SQL Editor, schema grants, Google OAuth + Supabase mirror troubleshooting  
 
 ---
 

@@ -4,7 +4,10 @@ import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { upsertSupabaseAuthUser } from "@/lib/supabase/auth-users";
+import {
+  upsertSupabaseAuthUser,
+  upsertSupabaseOAuthUser,
+} from "@/lib/supabase/auth-users";
 import type { UserRole } from "@/types";
 
 async function findUserByEmail(email: string) {
@@ -18,6 +21,41 @@ async function findUserByEmail(email: string) {
   if (error) throw error;
   return data;
 }
+
+/** Find or create an app profile for a Google sign-in. */
+async function ensureGoogleAppUser(input: {
+  email: string;
+  name?: string | null;
+  image?: string | null;
+}) {
+  const email = input.email.toLowerCase().trim();
+  const existing = await findUserByEmail(email);
+  if (existing) return existing;
+
+  const supabase = getSupabaseAdmin();
+  const name =
+    input.name?.trim() ||
+    email.split("@")[0] ||
+    "Google user";
+
+  const { data, error } = await supabase
+    .from("users")
+    .insert({
+      name,
+      email,
+      password_hash: null,
+      role: "viewer",
+    })
+    .select("id, name, email, password_hash, role")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+const googleConfigured = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET,
+);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -63,29 +101,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ...(googleConfigured
       ? [
           Google({
-            clientId: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-            allowDangerousEmailAccountLinking: false,
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            // Same email may later get a password account from admin
+            allowDangerousEmailAccountLinking: true,
           }),
         ]
       : []),
   ],
   callbacks: {
     ...authConfig.callbacks,
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "credentials") return true;
+      if (account?.provider !== "google") return false;
       if (!user.email) return false;
 
-      const existing = await findUserByEmail(user.email);
-      if (!existing) return false;
+      try {
+        const appUser = await ensureGoogleAppUser({
+          email: user.email,
+          name: user.name ?? profile?.name,
+          image: user.image,
+        });
 
-      user.id = existing.id;
-      user.role = existing.role as UserRole;
-      user.name = existing.name;
-      return true;
+        user.id = appUser.id;
+        user.role = appUser.role as UserRole;
+        user.name = appUser.name;
+
+        try {
+          await upsertSupabaseOAuthUser({
+            id: appUser.id,
+            email: appUser.email,
+            name: appUser.name,
+            role: appUser.role,
+            image: user.image,
+            provider: "google",
+          });
+        } catch (err) {
+          console.error("Supabase Auth Google sync failed:", err);
+        }
+
+        return true;
+      } catch (err) {
+        console.error(
+          "Google sign-in failed:",
+          err instanceof Error
+            ? { name: err.name, message: err.message, stack: err.stack }
+            : JSON.stringify(err),
+        );
+        return false;
+      }
     },
   },
 });
