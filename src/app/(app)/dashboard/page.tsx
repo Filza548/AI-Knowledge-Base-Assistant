@@ -2,19 +2,15 @@ import { auth } from "@/lib/auth";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { DashboardIntro } from "@/components/dashboard/dashboard-intro";
 import { SearchBar } from "@/components/search/search-bar";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { getAccessibleDocumentIds } from "@/lib/documents/access";
 
 export default async function DashboardPage() {
   const session = await auth();
-  const supabase = getSupabaseAdmin();
-  const { count, error } = await supabase
-    .from("knowledge_base")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "ready");
+  const readyIds = session?.user?.id
+    ? await getAccessibleDocumentIds(session.user, { readyOnly: true })
+    : [];
 
-  if (error) throw error;
-
-  const readyDocumentCount = count ?? 0;
+  const readyDocumentCount = readyIds.length;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">

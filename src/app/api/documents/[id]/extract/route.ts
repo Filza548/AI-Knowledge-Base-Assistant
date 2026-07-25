@@ -1,7 +1,7 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { extractDocumentInfo } from "@/lib/openai/rag";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { requireDocumentAccess } from "@/lib/documents/access";
 import { logActivity } from "@/lib/activity";
 
 export const maxDuration = 60;
@@ -17,19 +17,8 @@ export async function POST(_req: Request, { params }: Params) {
     });
 
     const { id } = await params;
-    if (!/^[0-9a-f-]{36}$/i.test(id)) {
-      throw new ApiError(400, "Invalid document id", "validation_error");
-    }
+    const { document: doc } = await requireDocumentAccess(session.user, id);
 
-    const supabase = getSupabaseAdmin();
-    const { data: doc, error } = await supabase
-      .from("knowledge_base")
-      .select("id, status, document_name")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!doc) throw new ApiError(404, "Document not found", "not_found");
     if (doc.status !== "ready") {
       throw new ApiError(409, "Document is not ready for extraction", "not_ready");
     }

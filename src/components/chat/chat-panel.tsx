@@ -2,10 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useSession } from "next-auth/react";
 import {
   Bot,
   Copy,
   Download,
+  Loader2,
   MessageSquarePlus,
   Send,
   Square,
@@ -123,9 +125,12 @@ export function ChatPanel({
   readyDocumentCount?: number;
 }) {
   const confirm = useConfirm();
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
   const [messages, setMessages] = useState<Message[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -151,6 +156,16 @@ export function ChatPanel({
   }, [showHistory]);
 
   useEffect(() => {
+    // Clear prior user's chats when the session user changes (account switch).
+    setConversations([]);
+    setMessages([]);
+    setConversationId(null);
+    setCollectionId("");
+    setError(null);
+    setLastFailedQuery(null);
+    setQuery("");
+    if (!userId) return;
+
     refreshConversations().catch(() => undefined);
     if (showCollectionPicker && !documentId) {
       apiFetch("/api/collections")
@@ -168,13 +183,13 @@ export function ChatPanel({
         setSuggestions(j.suggestions ?? []);
       })
       .catch(() => undefined);
-  }, [documentId, refreshConversations, showCollectionPicker]);
+  }, [userId, documentId, refreshConversations, showCollectionPicker]);
 
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, loadingHistory]);
 
   useEffect(() => {
     return () => {
@@ -187,7 +202,7 @@ export function ChatPanel({
     abortRef.current?.abort();
     setError(null);
     setLastFailedQuery(null);
-    setLoading(true);
+    setLoadingHistory(true);
     try {
       const res = await apiFetch(`/api/conversations/${id}`);
       const json = await res.json();
@@ -212,8 +227,9 @@ export function ChatPanel({
     } catch (err) {
       if (seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load chat");
+      toast.error("Could not open that chat");
     } finally {
-      if (seq === loadSeqRef.current) setLoading(false);
+      if (seq === loadSeqRef.current) setLoadingHistory(false);
     }
   }
 
@@ -254,7 +270,7 @@ export function ChatPanel({
 
   async function sendQuery(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || loadingHistory) return;
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -585,6 +601,12 @@ export function ChatPanel({
                 ))}
               </AnimatePresence>
 
+              {loadingHistory ? (
+                <div className="flex items-center gap-2 text-sm text-text-secondary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Opening chat…
+                </div>
+              ) : null}
               {loading ? <TypingIndicator /> : null}
               {error ? (
                 <div className="space-y-2" role="alert">

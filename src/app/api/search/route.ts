@@ -8,6 +8,7 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { searchSchema } from "@/lib/validations";
 import { logActivity, searchLogActorFields } from "@/lib/activity";
+import { resolveReadableDocumentScope } from "@/lib/documents/access";
 
 export const maxDuration = 30;
 
@@ -31,10 +32,10 @@ export async function POST(req: Request) {
 
     const { query, documentId, collectionId } = parsed.data;
 
-    let documentIds: string[] | undefined;
+    let collectionDocumentIds: string[] | undefined;
     if (collectionId) {
-      documentIds = await resolveCollectionDocumentIds(collectionId);
-      if (!documentIds.length) {
+      collectionDocumentIds = await resolveCollectionDocumentIds(collectionId);
+      if (!collectionDocumentIds.length) {
         throw new ApiError(
           400,
           "This collection has no documents yet",
@@ -43,9 +44,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const matches = await retrieveChunks(query, {
+    const scope = await resolveReadableDocumentScope(session.user, {
       documentId,
-      documentIds,
+      collectionDocumentIds,
+    });
+
+    const matches = await retrieveChunks(query, {
+      documentId: scope.documentId,
+      documentIds: scope.documentIds,
       matchCount: 12,
     });
 

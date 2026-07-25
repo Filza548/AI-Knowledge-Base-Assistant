@@ -8,6 +8,7 @@ import {
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { chatSchema } from "@/lib/validations";
 import { logActivity, searchLogActorFields } from "@/lib/activity";
+import { resolveReadableDocumentScope } from "@/lib/documents/access";
 
 /** Vercel serverless timeout (Pro/Fluid; Hobby max may be lower). */
 export const maxDuration = 60;
@@ -40,10 +41,10 @@ export async function POST(req: Request) {
     const { query, documentId, collectionId, conversationId } = parsed.data;
     const supabase = getSupabaseAdmin();
 
-    let documentIds: string[] | undefined;
+    let collectionDocumentIds: string[] | undefined;
     if (collectionId) {
-      documentIds = await resolveCollectionDocumentIds(collectionId);
-      if (!documentIds.length) {
+      collectionDocumentIds = await resolveCollectionDocumentIds(collectionId);
+      if (!collectionDocumentIds.length) {
         throw new ApiError(
           400,
           "This collection has no documents yet",
@@ -51,6 +52,11 @@ export async function POST(req: Request) {
         );
       }
     }
+
+    const scope = await resolveReadableDocumentScope(session.user, {
+      documentId,
+      collectionDocumentIds,
+    });
 
     let activeConversationId = conversationId;
     let history: { role: "user" | "assistant"; content: string }[] = [];
@@ -60,9 +66,10 @@ export async function POST(req: Request) {
         .from("conversations")
         .select("id, user_id, title")
         .eq("id", activeConversationId)
+        .eq("user_id", session.user.id)
         .maybeSingle();
       if (error) throw error;
-      if (!existing || existing.user_id !== session.user.id) {
+      if (!existing) {
         throw new ApiError(404, "Conversation not found", "not_found");
       }
 
@@ -95,10 +102,9 @@ export async function POST(req: Request) {
       createdConversationId = created.id;
     }
 
-    // Generate first — only persist turns after a successful answer
     const result = await answerWithRag(query, {
-      documentId,
-      documentIds,
+      documentId: scope.documentId,
+      documentIds: scope.documentIds,
       history,
       includeFollowUps: false,
     });

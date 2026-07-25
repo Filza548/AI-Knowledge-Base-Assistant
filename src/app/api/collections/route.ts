@@ -6,12 +6,19 @@ import { collectionCreateSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
-    await requireSession({ rateLimitKey: "collections-list" });
+    const session = await requireSession({ rateLimitKey: "collections-list" });
     const supabase = getSupabaseAdmin();
-    const { data: collections, error } = await supabase
+    let query = supabase
       .from("collections")
       .select("id, name, description, created_by, created_at, updated_at")
       .order("name", { ascending: true });
+
+    // Non-admins only see collections they created (no peeking at others' scopes).
+    if (session.user.role !== "admin") {
+      query = query.eq("created_by", session.user.id);
+    }
+
+    const { data: collections, error } = await query;
 
     if (error) throw error;
 

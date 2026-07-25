@@ -15,9 +15,10 @@ async function ownedConversation(userId: string, id: string) {
     .from("conversations")
     .select("id, user_id, title, document_id, collection_id, created_at, updated_at")
     .eq("id", id)
+    .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
-  if (!data || data.user_id !== userId) {
+  if (!data) {
     throw new ApiError(404, "Conversation not found", "not_found");
   }
   return { supabase, conversation: data };
@@ -103,7 +104,11 @@ export async function DELETE(_req: Request, { params }: Params) {
     const { id } = await params;
     const { supabase } = await ownedConversation(session.user.id, id);
 
-    const { error } = await supabase.from("conversations").delete().eq("id", id);
+    const { error } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", session.user.id);
     if (error) throw error;
 
     return jsonOk({ success: true });

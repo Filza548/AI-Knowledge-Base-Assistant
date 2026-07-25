@@ -1,30 +1,21 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { decryptAtRest } from "@/lib/security/encryption";
+import { requireDocumentAccess } from "@/lib/documents/access";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
   try {
-    await requireSession({ rateLimitKey: "documents-file", limit: 40 });
+    const session = await requireSession({
+      rateLimitKey: "documents-file",
+      limit: 40,
+    });
 
     const { id } = await params;
-    if (!/^[0-9a-f-]{36}$/i.test(id)) {
-      throw new ApiError(400, "Invalid document id", "validation_error");
-    }
+    const { supabase, document } = await requireDocumentAccess(session.user, id);
 
-    const supabase = getSupabaseAdmin();
-    const { data: doc, error } = await supabase
-      .from("knowledge_base")
-      .select("id, document_name, file_type, file_path, status")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!doc) throw new ApiError(404, "Document not found", "not_found");
-
-    const storagePath = decryptAtRest(doc.file_path);
+    const storagePath = decryptAtRest(String(document.file_path));
     const { data: signed, error: signError } = await supabase.storage
       .from("documents")
       .createSignedUrl(storagePath, 60);
@@ -35,9 +26,9 @@ export async function GET(_req: Request, { params }: Params) {
 
     return jsonOk({
       url: signed.signedUrl,
-      fileType: doc.file_type,
-      documentName: doc.document_name,
-      documentId: doc.id,
+      fileType: document.file_type,
+      documentName: document.document_name,
+      documentId: document.id,
     });
   } catch (err) {
     return handleRouteError(err);

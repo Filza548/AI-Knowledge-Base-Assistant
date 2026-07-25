@@ -132,6 +132,12 @@ export async function retrieveChunks(
       : documentIdOrOptions;
 
   const embedding = await embedQuery(query);
+
+  // Never query the full corpus without an explicit ACL document scope.
+  if (!opts.documentId && !(opts.documentIds && opts.documentIds.length > 0)) {
+    return [];
+  }
+
   const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase.rpc("match_document_chunks", {

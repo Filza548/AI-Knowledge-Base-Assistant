@@ -1,8 +1,8 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { decryptAtRest } from "@/lib/security/encryption";
 import { indexDocument } from "@/lib/documents/indexer";
+import { requireDocumentAccess } from "@/lib/documents/access";
 
 export const maxDuration = 60;
 
@@ -10,28 +10,19 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {
   try {
-    await requireSession({
+    const session = await requireSession({
       roles: ["admin", "assistant"],
       rateLimitKey: "reindex",
       limit: 10,
     });
 
     const { id } = await params;
-    if (!/^[0-9a-f-]{36}$/i.test(id)) {
-      throw new ApiError(400, "Invalid document id", "validation_error");
-    }
+    const { supabase, document: doc } = await requireDocumentAccess(
+      session.user,
+      id,
+    );
 
-    const supabase = getSupabaseAdmin();
-    const { data: doc, error } = await supabase
-      .from("knowledge_base")
-      .select("id, file_path, file_type")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error) throw error;
-    if (!doc) throw new ApiError(404, "Document not found", "not_found");
-
-    const storagePath = decryptAtRest(doc.file_path);
+    const storagePath = decryptAtRest(String(doc.file_path));
     const { data: file, error: downloadError } = await supabase.storage
       .from("documents")
       .download(storagePath);

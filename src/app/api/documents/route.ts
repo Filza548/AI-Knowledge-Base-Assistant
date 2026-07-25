@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { encryptAtRest } from "@/lib/security/encryption";
 import { indexDocument } from "@/lib/documents/indexer";
 import { logActivity } from "@/lib/activity";
+import { listAccessibleDocuments } from "@/lib/documents/access";
 
 export const maxDuration = 60;
 export const runtime = "nodejs";
@@ -33,17 +34,9 @@ function resolveFileType(file: File): "pdf" | "docx" | null {
 
 export async function GET() {
   try {
-    await requireSession({ rateLimitKey: "documents-list" });
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("knowledge_base")
-      .select(
-        "id, document_name, file_type, file_size, status, vector_collection_ref, uploaded_by, created_at, updated_at, error_message",
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return jsonOk({ documents: data });
+    const session = await requireSession({ rateLimitKey: "documents-list" });
+    const documents = await listAccessibleDocuments(session.user);
+    return jsonOk({ documents });
   } catch (err) {
     return handleRouteError(err);
   }
@@ -116,7 +109,6 @@ export async function POST(req: Request) {
       throw insertError;
     }
 
-    // Keep indexing alive after the HTTP response on Vercel serverless.
     after(() =>
       indexDocument(documentId, buffer, fileType).catch((err) => {
         console.error("[documents] background index failed", documentId, err);

@@ -1,36 +1,43 @@
 import { handleRouteError, jsonOk } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import {
+  canManageAllDocuments,
+  listAccessibleDocuments,
+} from "@/lib/documents/access";
 
 const FALLBACK = [
-  "What is the leave policy?",
-  "Summarize onboarding requirements",
-  "What are the security guidelines?",
-  "Who approves expense claims?",
+  "What is covered in my documents?",
+  "Summarize the main points",
+  "What key policies should I know?",
+  "List important dates or deadlines",
 ];
 
 export async function GET() {
   try {
-    await requireSession({ rateLimitKey: "suggestions" });
+    const session = await requireSession({ rateLimitKey: "suggestions" });
     const supabase = getSupabaseAdmin();
 
-    const [{ data: docs }, { data: logs }] = await Promise.all([
-      supabase
-        .from("knowledge_base")
-        .select("document_name")
-        .eq("status", "ready")
-        .order("updated_at", { ascending: false })
-        .limit(4),
-      supabase
-        .from("search_logs")
-        .select("query_text")
-        .eq("had_hits", true)
-        .order("timestamp", { ascending: false })
-        .limit(8),
-    ]);
+    const docs = await listAccessibleDocuments(session.user, {
+      readyOnly: true,
+      limit: 4,
+    });
+
+    let logsQuery = supabase
+      .from("search_logs")
+      .select("query_text")
+      .eq("had_hits", true)
+      .order("timestamp", { ascending: false })
+      .limit(8);
+
+    if (!canManageAllDocuments(session.user.role)) {
+      logsQuery = logsQuery.eq("user_id", session.user.id);
+    }
+
+    const { data: logs } = await logsQuery;
 
     const fromDocs = (docs ?? []).map(
-      (d) => `What does ${d.document_name} cover?`,
+      (d) => `What does ${d.document_name ?? "this document"} cover?`,
     );
     const fromLogs = (logs ?? [])
       .map((l) => l.query_text?.trim())
