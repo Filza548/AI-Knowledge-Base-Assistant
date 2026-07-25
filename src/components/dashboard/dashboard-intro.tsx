@@ -26,8 +26,15 @@ const features = [
   },
 ];
 
-export function DashboardIntro({ name }: { name?: string | null }) {
+export function DashboardIntro({
+  name,
+  role,
+}: {
+  name?: string | null;
+  role?: string | null;
+}) {
   const greeting = name?.split(" ")[0] || "there";
+  const isAdmin = role === "admin";
 
   return (
     <section className="space-y-6">
@@ -78,12 +85,14 @@ export function DashboardIntro({ name }: { name?: string | null }) {
               >
                 Open documents
               </Link>
-              <Link
-                href="/admin-settings"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-surface-muted"
-              >
-                Admin Settings
-              </Link>
+              {isAdmin ? (
+                <Link
+                  href="/admin-settings"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-surface-muted"
+                >
+                  Admin Settings
+                </Link>
+              ) : null}
             </div>
           </div>
           <div className="relative min-h-[220px] sm:min-h-[280px]">

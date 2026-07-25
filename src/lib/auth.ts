@@ -10,84 +10,96 @@ import {
   upsertSupabaseOAuthUser,
 } from "@/lib/supabase/auth-users";
 import { logActivity } from "@/lib/activity";
-import type { UserRole } from "@/types";
+import type { UserRole, UserStatus } from "@/types";
 
 applyProductionAuthUrl();
+
+type AppUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  password_hash: string | null;
+  role: string;
+  status: UserStatus;
+};
 
 async function findUserByEmail(email: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("users")
-    .select("id, name, email, password_hash, role")
+    .select("id, name, email, password_hash, role, status")
     .eq("email", email.toLowerCase())
     .maybeSingle();
 
   if (error) throw error;
-  return data;
+  return data as AppUserRow | null;
 }
 
-/** Lookup without password_hash — used by Google SSO when column may be optional. */
-async function findAppUserByEmail(email: string) {
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, email, role")
-    .eq("email", email.toLowerCase())
-    .maybeSingle();
-
-  if (error) throw error;
-  return data;
-}
-
-/** Find or create an app profile for a Google sign-in (always assistant). */
-async function ensureGoogleAppUser(input: {
+/**
+ * Google is closed enrollment:
+ * - active → allow
+ * - invited → activate on first Google login
+ * - pending / rejected / unknown → deny
+ */
+async function resolveGoogleAppUser(input: {
   email: string;
   name?: string | null;
-  image?: string | null;
 }) {
   const email = input.email.toLowerCase().trim();
-  const existing = await findAppUserByEmail(email);
-  if (existing) {
-    // Password/admin accounts keep their role; Google-only stay assistants
-    if (existing.role === "assistant") return existing;
+  const existing = await findUserByEmail(email);
 
-    const supabase = getSupabaseAdmin();
-    const { data: withPassword } = await supabase
-      .from("users")
-      .select("password_hash")
-      .eq("id", existing.id)
-      .maybeSingle();
-
-    if (withPassword?.password_hash) return existing;
-
-    const { data, error } = await supabase
-      .from("users")
-      .update({ role: "assistant" })
-      .eq("id", existing.id)
-      .select("id, name, email, role")
-      .single();
-    if (error) throw error;
-    return data;
+  if (!existing) {
+    return { ok: false as const, reason: "not_invited" };
   }
 
-  const supabase = getSupabaseAdmin();
-  const name =
-    input.name?.trim() ||
-    email.split("@")[0] ||
-    "Google user";
+  if (existing.status === "pending") {
+    return { ok: false as const, reason: "pending" };
+  }
+  if (existing.status === "rejected") {
+    return { ok: false as const, reason: "rejected" };
+  }
 
-  const { data, error } = await supabase
-    .from("users")
-    .insert({
-      name,
-      email,
-      role: "assistant",
-    })
-    .select("id, name, email, role")
-    .single();
+  if (existing.status === "invited") {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("users")
+      .update({
+        status: "active",
+        approved_at: new Date().toISOString(),
+        invite_token: null,
+        invite_expires_at: null,
+        name: input.name?.trim() || existing.name,
+      })
+      .eq("id", existing.id)
+      .select("id, name, email, role, status")
+      .single();
+    if (error) throw error;
+    return {
+      ok: true as const,
+      user: {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        role: data.role as UserRole,
+        status: data.status as UserStatus,
+      },
+    };
+  }
 
-  if (error) throw error;
-  return data;
+  if (existing.status !== "active") {
+    return { ok: false as const, reason: "inactive" };
+  }
+
+  return {
+    ok: true as const,
+    user: {
+      id: existing.id,
+      name: existing.name,
+      email: existing.email,
+      role: existing.role as UserRole,
+      status: existing.status,
+    },
+  };
 }
 
 const googleConfigured = Boolean(
@@ -113,10 +125,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!email || !password) return null;
 
           const user = await findUserByEmail(email);
-          // Google-only accounts have no password_hash — must use Google button
           if (!user?.password_hash) {
             console.warn(
               "[auth] credentials login failed: user missing or no password",
+              email,
+            );
+            return null;
+          }
+
+          if (user.status !== "active") {
+            console.warn(
+              "[auth] credentials login blocked: status=",
+              user.status,
               email,
             );
             return null;
@@ -128,7 +148,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null;
           }
 
-          // Mirror into Supabase Auth as admin (email/password)
           try {
             await upsertSupabaseAuthUser({
               id: user.id,
@@ -156,6 +175,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: user.name,
             email: user.email,
             role: user.role as UserRole,
+            status: user.status,
           };
         } catch (err) {
           console.error("[auth] credentials authorize error:", err);
@@ -168,7 +188,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-            // Same email may later get a password account from admin
             allowDangerousEmailAccountLinking: true,
           }),
         ]
@@ -180,20 +199,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id!;
         token.role = user.role as UserRole;
+        token.status = (user.status as UserStatus) ?? "active";
         if (user.name) token.name = user.name;
+        delete token.error;
       }
 
-      // Keep role fresh from DB (e.g. after promoting Google users to admin)
       if (token.id) {
         try {
           const supabase = getSupabaseAdmin();
           const { data } = await supabase
             .from("users")
-            .select("role, name")
+            .select("role, name, status")
             .eq("id", token.id as string)
             .maybeSingle();
-          if (data?.role) token.role = data.role as UserRole;
-          if (data?.name) token.name = data.name;
+
+          if (!data || data.status !== "active") {
+            token.error = "inactive";
+            return token;
+          }
+
+          delete token.error;
+          token.role = data.role as UserRole;
+          token.status = data.status as UserStatus;
+          if (data.name) token.name = data.name;
         } catch (err) {
           console.error("JWT role refresh failed:", err);
         }
@@ -201,21 +229,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       return token;
     },
+    async session({ session, token }) {
+      if (token.error === "inactive" || !token.id) {
+        return { ...session, user: undefined as unknown as typeof session.user };
+      }
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
+        session.user.status = (token.status as UserStatus) ?? "active";
+      }
+      return session;
+    },
     async signIn({ user, account, profile }) {
       if (account?.provider === "credentials") return true;
       if (account?.provider !== "google") return false;
       if (!user.email) return false;
 
       try {
-        const appUser = await ensureGoogleAppUser({
+        const resolved = await resolveGoogleAppUser({
           email: user.email,
           name: user.name ?? profile?.name,
-          image: user.image,
         });
 
+        if (!resolved.ok) {
+          console.warn("[auth] Google denied:", resolved.reason, user.email);
+          return false;
+        }
+
+        const appUser = resolved.user;
         user.id = appUser.id;
-        user.role = appUser.role as UserRole;
+        user.role = appUser.role;
         user.name = appUser.name;
+        user.status = appUser.status;
 
         try {
           await upsertSupabaseOAuthUser({

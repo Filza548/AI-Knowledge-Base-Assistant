@@ -37,6 +37,8 @@ async function main() {
         email,
         password_hash,
         role: "admin",
+        status: "active",
+        approved_at: new Date().toISOString(),
       },
       { onConflict: "email" },
     )

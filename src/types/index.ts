@@ -1,5 +1,7 @@
 export type UserRole = "assistant" | "admin";
 
+export type UserStatus = "invited" | "pending" | "active" | "rejected";
+
 export type DocumentStatus = "processing" | "ready" | "failed";
 
 export interface AppUser {
@@ -7,6 +9,7 @@ export interface AppUser {
   name: string;
   email: string;
   role: UserRole;
+  status: UserStatus;
   created_at: string;
 }
 

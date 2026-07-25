@@ -13,6 +13,9 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   AUTH_URL: z.string().url().optional(),
+  /** Resend API key — invite / approval emails. Optional in local/dev. */
+  RESEND_API_KEY: z.string().min(10).optional(),
+  EMAIL_FROM: z.string().min(3).optional(),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;
@@ -34,6 +37,8 @@ export function getEnv(): ServerEnv {
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
     AUTH_URL: process.env.AUTH_URL ?? process.env.NEXTAUTH_URL,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
   });
 
   if (!parsed.success) {

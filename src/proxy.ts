@@ -7,8 +7,10 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+  const user = req.auth?.user;
+  const isAuthed = Boolean(user?.id);
 
-  if (!req.auth) {
+  if (!isAuthed) {
     if (pathname.startsWith("/api/")) {
       const res = NextResponse.json(
         { error: "Unauthorized", code: "unauthorized" },
@@ -24,7 +26,7 @@ export default auth((req) => {
 
   if (
     pathname.startsWith("/admin-settings") &&
-    req.auth?.user?.role !== "admin"
+    user?.role !== "admin"
   ) {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
@@ -32,9 +34,9 @@ export default auth((req) => {
   return applySecurityHeaders(NextResponse.next());
 });
 
-// Exclude Auth.js routes + login so the auth() wrapper cannot 404 them.
+// Public: login, signup, Auth.js, register + accept-invite APIs
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|login|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|login|signup|api/auth|api/register|api/invite|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

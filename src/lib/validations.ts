@@ -5,18 +5,53 @@ export const loginSchema = z.object({
   password: z.string().min(8).max(128),
 });
 
+const passwordSchema = z
+  .string()
+  .min(10)
+  .max(128)
+  .regex(/[A-Z]/, "Must include uppercase")
+  .regex(/[a-z]/, "Must include lowercase")
+  .regex(/[0-9]/, "Must include a number");
+
+/** Admin creates an active user with a password (legacy / optional). */
 export const registerUserSchema = z.object({
   name: z.string().trim().min(1).max(120),
   email: z.string().email().max(255),
-  password: z
-    .string()
-    .min(10)
-    .max(128)
-    .regex(/[A-Z]/, "Must include uppercase")
-    .regex(/[a-z]/, "Must include lowercase")
-    .regex(/[0-9]/, "Must include a number"),
+  password: passwordSchema,
   role: z.enum(["assistant", "admin"]).default("assistant"),
 });
+
+/** Public self-signup — waits for admin approval. */
+export const selfRegisterSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: z.string().email().max(255),
+  password: passwordSchema,
+});
+
+/** Admin invite by email (no password — user sets it or uses Google). */
+export const inviteUserSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: z.string().email().max(255),
+  role: z.enum(["assistant", "admin"]).default("assistant"),
+});
+
+/** Accept invite: set password and activate. */
+export const acceptInviteSchema = z.object({
+  token: z.string().min(20).max(128),
+  name: z.string().trim().min(1).max(120).optional(),
+  password: passwordSchema,
+});
+
+/** Signed-in user updates own name / password (email is immutable). */
+export const updateProfileSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120).optional(),
+    currentPassword: z.string().min(1).max(128).optional(),
+    newPassword: passwordSchema.optional(),
+  })
+  .refine((v) => v.name !== undefined || v.newPassword !== undefined, {
+    message: "Provide a name and/or a new password",
+  });
 
 export const chatSchema = z.object({
   query: z.string().trim().min(1).max(4000),

@@ -1,5 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
-import type { UserRole } from "@/types";
+import type { UserRole, UserStatus } from "@/types";
 import { applyProductionAuthUrl } from "@/lib/auth-url";
 
 applyProductionAuthUrl();
@@ -21,13 +21,18 @@ export const authConfig = {
       if (user) {
         token.id = user.id!;
         token.role = user.role as UserRole;
+        token.status = (user.status as UserStatus) ?? "active";
       }
       return token;
     },
     async session({ session, token }) {
+      if (token.error === "inactive" || !token.id) {
+        return { ...session, user: undefined as unknown as typeof session.user };
+      }
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as UserRole;
+        session.user.status = (token.status as UserStatus) ?? "active";
       }
       return session;
     },

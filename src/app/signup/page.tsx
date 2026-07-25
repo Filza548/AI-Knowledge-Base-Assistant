@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import LoginForm from "./login-form";
+import SignupForm from "./signup-form";
 
-export default async function LoginRoute() {
+export default async function SignupRoute() {
   const session = await auth();
   if (session?.user?.id) redirect("/dashboard");
 
@@ -19,7 +19,7 @@ export default async function LoginRoute() {
         </main>
       }
     >
-      <LoginForm googleEnabled={googleEnabled} />
+      <SignupForm googleEnabled={googleEnabled} />
     </Suspense>
   );
 }

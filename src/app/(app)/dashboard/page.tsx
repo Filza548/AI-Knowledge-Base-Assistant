@@ -14,7 +14,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
-      <DashboardIntro name={session?.user?.name} />
+      <DashboardIntro
+        name={session?.user?.name}
+        role={session?.user?.role}
+      />
       <SearchBar />
       <div id="knowledge-chat">
         <ChatPanel readyDocumentCount={readyDocumentCount} />

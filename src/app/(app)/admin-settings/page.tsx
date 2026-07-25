@@ -24,7 +24,9 @@ export default async function AdminSettingsPage() {
       .limit(200),
     supabase
       .from("users")
-      .select("id, name, email, role, created_at")
+      .select(
+        "id, name, email, role, status, created_at, requested_at, approved_at, invite_expires_at",
+      )
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
@@ -66,7 +68,7 @@ export default async function AdminSettingsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Admin Settings</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
           Keep the knowledge base healthy: upload and reindex PDFs/DOCX, organize
-          collections, provision assistants and admins, and review usage analytics.
+          collections, invite or approve teammates, and review usage analytics.
         </p>
       </div>
 
@@ -115,7 +117,7 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Manage users</CardTitle>
+          <CardTitle>Users & access</CardTitle>
         </CardHeader>
         <CardContent>
           <UserManager users={users ?? []} />
