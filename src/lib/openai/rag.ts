@@ -27,15 +27,20 @@ export type AnswerOptions = RetrieveOptions & {
 };
 
 /** Cosine distance cutoff. distance = 1 - similarity. */
-const MAX_RELEVANT_DISTANCE = 0.55;
+const MAX_RELEVANT_DISTANCE = 0.72; // keep chunks with similarity >= ~0.28
+/** If nothing clears the main cutoff, still use these weaker-but-best hits. */
+const MIN_FALLBACK_SIMILARITY = 0.18;
+const DEFAULT_MATCH_COUNT = 10;
 
 const SYSTEM_PROMPT = `You are an internal knowledge assistant embedded in a company dashboard.
 
 - If the user's message is a greeting, thanks, or casual small talk (e.g. "hi", "hello", "thank you"), reply briefly and warmly in your own words. Do not mention documents, context, or citations for these.
-- If the user asks a substantive question, answer ONLY using the context excerpts provided below.
+- For substantive questions, answer using ONLY the context excerpts provided below.
+- Synthesize a clear, helpful answer from related excerpts — paraphrase is fine. Combine multiple excerpts when needed.
+- Prefer answering when the context is even partially related to the question. Do not refuse just because the wording differs.
 - Every claim in a substantive answer must cite its source inline in the format (Source: <document name>, Page <page number>). If a chunk has no page number, cite just (Source: <document name>).
-- If it's a substantive question and the context does not contain the answer, respond exactly: "I couldn't find this information in the knowledge base."
-- Never use knowledge outside the provided context for substantive questions.`;
+- Only if the context is empty or clearly unrelated, respond exactly: "I couldn't find this information in the knowledge base."
+- Never invent facts that are not supported by the context.`;
 
 const NOT_FOUND_ANSWER =
   "I couldn't find this information in the knowledge base.";
@@ -43,8 +48,36 @@ const NOT_FOUND_ANSWER =
 function confidenceLevel(score: number): ConfidenceLevel {
   if (score <= 0) return "none";
   if (score >= 0.72) return "high";
-  if (score >= 0.5) return "medium";
+  if (score >= 0.45) return "medium";
   return "low";
+}
+
+function isSubstantiveChunk(content: string) {
+  return content.trim().split(/\s+/).filter(Boolean).length >= 20;
+}
+
+function selectRelevantMatches(
+  matches: DocumentChunkMatch[],
+): DocumentChunkMatch[] {
+  const primary = matches.filter((m) => {
+    const distance = 1 - (m.similarity ?? 0);
+    return distance <= MAX_RELEVANT_DISTANCE;
+  });
+
+  let selected =
+    primary.length > 0
+      ? primary
+      : matches
+          .filter((m) => (m.similarity ?? 0) >= MIN_FALLBACK_SIMILARITY)
+          .slice(0, 6);
+
+  // Prefer longer excerpts when available (title/contact lines often score high but lack substance).
+  const substantive = selected.filter((m) => isSubstantiveChunk(m.content));
+  if (substantive.length >= 2) {
+    selected = substantive;
+  }
+
+  return selected.slice(0, DEFAULT_MATCH_COUNT);
 }
 
 function buildCitations(matches: DocumentChunkMatch[]): Citation[] {
@@ -91,7 +124,7 @@ export async function resolveCollectionDocumentIds(
 export async function retrieveChunks(
   query: string,
   documentIdOrOptions?: string | RetrieveOptions,
-  matchCountArg = 5,
+  matchCountArg = DEFAULT_MATCH_COUNT,
 ): Promise<DocumentChunkMatch[]> {
   const opts: RetrieveOptions =
     typeof documentIdOrOptions === "string" || documentIdOrOptions == null
@@ -103,18 +136,14 @@ export async function retrieveChunks(
 
   const { data, error } = await supabase.rpc("match_document_chunks", {
     query_embedding: embedding,
-    match_count: opts.matchCount ?? matchCountArg,
+    match_count: Math.max(opts.matchCount ?? matchCountArg, DEFAULT_MATCH_COUNT),
     filter_document_id: opts.documentId ?? null,
     filter_document_ids: opts.documentIds?.length ? opts.documentIds : null,
   });
 
   if (error) throw error;
 
-  const matches = (data ?? []) as DocumentChunkMatch[];
-  return matches.filter((m) => {
-    const distance = 1 - (m.similarity ?? 0);
-    return distance <= MAX_RELEVANT_DISTANCE;
-  });
+  return selectRelevantMatches((data ?? []) as DocumentChunkMatch[]);
 }
 
 async function generateFollowUps(
@@ -193,13 +222,13 @@ export async function answerWithRag(
 
   const completion = await openai.chat.completions.create({
     model: env.OPENAI_CHAT_MODEL,
-    temperature: 0.2,
+    temperature: 0.35,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       ...history,
       {
         role: "user",
-        content: `Context:\n${context}\n\nQuestion: ${query}`,
+        content: `Context:\n${context}\n\nQuestion: ${query}\n\nWrite a clear answer from the context above. If the context is related, answer helpfully with citations.`,
       },
     ],
   });
