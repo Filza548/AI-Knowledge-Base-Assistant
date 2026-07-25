@@ -6,6 +6,7 @@ export type ActivityAction =
   | "login_credentials"
   | "search"
   | "chat"
+  | "chat_small_talk"
   | "upload"
   | "summarize"
   | "extract"
