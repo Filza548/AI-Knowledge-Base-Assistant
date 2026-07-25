@@ -69,7 +69,9 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
             </div>
             {doc.status === "failed" && doc.error_message ? (
               <p className="mt-1 break-words text-xs text-danger">
-                {doc.error_message}
+                {/pdf-parse|DOMMatrix/i.test(doc.error_message)
+                  ? "Old PDF engine failed — click Reindex to process with the new fix."
+                  : doc.error_message}
               </p>
             ) : null}
           </div>

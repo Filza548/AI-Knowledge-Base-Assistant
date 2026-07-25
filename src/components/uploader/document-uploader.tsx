@@ -73,6 +73,11 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
         const err = new Error(
           json.document?.error_message ?? "Indexing failed",
         ) as Error & { documentId?: string };
+        // Old Vercel pdf-parse failures — tell user to retry after fix deploy
+        if (/pdf-parse|DOMMatrix/i.test(err.message)) {
+          err.message =
+            "PDF indexing failed on the old server build. Click Retry reindex (or upload again).";
+        }
         err.documentId = documentId;
         throw err;
       }
