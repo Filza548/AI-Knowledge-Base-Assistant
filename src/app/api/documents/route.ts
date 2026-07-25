@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { after } from "next/server";
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -7,6 +8,7 @@ import { indexDocument } from "@/lib/documents/indexer";
 import { logActivity } from "@/lib/activity";
 
 export const maxDuration = 60;
+export const runtime = "nodejs";
 
 const ALLOWED: Record<string, "pdf" | "docx"> = {
   "application/pdf": "pdf",
@@ -14,7 +16,20 @@ const ALLOWED: Record<string, "pdf" | "docx"> = {
     "docx",
 };
 
+const MIME_BY_TYPE: Record<"pdf" | "docx", string> = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
 const MAX_BYTES = 20 * 1024 * 1024;
+
+function resolveFileType(file: File): "pdf" | "docx" | null {
+  if (ALLOWED[file.type]) return ALLOWED[file.type];
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".pdf")) return "pdf";
+  if (lower.endsWith(".docx")) return "docx";
+  return null;
+}
 
 export async function GET() {
   try {
@@ -54,7 +69,7 @@ export async function POST(req: Request) {
       throw new ApiError(400, "File must be between 1 byte and 20MB", "validation_error");
     }
 
-    const fileType = ALLOWED[file.type];
+    const fileType = resolveFileType(file);
     if (!fileType) {
       throw new ApiError(400, "Only PDF and DOCX are allowed", "validation_error");
     }
@@ -68,7 +83,7 @@ export async function POST(req: Request) {
     const { error: uploadError } = await supabase.storage
       .from("documents")
       .upload(storagePath, buffer, {
-        contentType: file.type,
+        contentType: file.type || MIME_BY_TYPE[fileType],
         upsert: false,
       });
 
@@ -101,11 +116,12 @@ export async function POST(req: Request) {
       throw insertError;
     }
 
-    // Index in the background so large PDFs don't timeout the upload HTTP request.
-    // Client polls GET /api/documents/[id] until status is ready | failed.
-    void indexDocument(documentId, buffer, fileType).catch((err) => {
-      console.error("[documents] background index failed", documentId, err);
-    });
+    // Keep indexing alive after the HTTP response on Vercel serverless.
+    after(() =>
+      indexDocument(documentId, buffer, fileType).catch((err) => {
+        console.error("[documents] background index failed", documentId, err);
+      }),
+    );
 
     void logActivity({
       user: session.user,

@@ -104,7 +104,7 @@ View in Supabase **Table Editor → `activity_logs`**, or in-app under **Admin S
 
 ### RAG pipeline
 
-1. **Parse** — PDF page-by-page (`pdf-parse`) or DOCX (`mammoth`).
+1. **Parse** — PDF page-by-page (`unpdf`) or DOCX (`mammoth`).
 2. **Chunk** — page-aware windows (~250 words, 40 overlap).
 3. **Embed** — OpenAI `text-embedding-3-small` (batched) → 1536-d vectors.
 4. **Store** — `document_chunks` + Storage object; `knowledge_base.status` = `processing` → `ready` / `failed`.

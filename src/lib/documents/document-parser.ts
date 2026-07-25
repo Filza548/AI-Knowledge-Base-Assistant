@@ -19,17 +19,19 @@ export async function parseDocument(
 }
 
 async function parsePdf(buffer: Buffer): Promise<ParsedPage[]> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  try {
-    const result = await parser.getText();
-    return result.pages.map((page) => ({
-      pageNumber: page.num,
-      text: page.text,
-    }));
-  } finally {
-    await parser.destroy();
-  }
+  // unpdf ships a serverless PDF.js build (no canvas / DOMMatrix dependency).
+  const { extractText } = await import("unpdf");
+  const { text } = await extractText(new Uint8Array(buffer), {
+    mergePages: false,
+  });
+
+  const pages = Array.isArray(text) ? text : [text];
+  return pages
+    .map((pageText, index) => ({
+      pageNumber: index + 1,
+      text: pageText ?? "",
+    }))
+    .filter((page) => page.text.trim().length > 0);
 }
 
 async function parseDocx(buffer: Buffer): Promise<ParsedPage[]> {

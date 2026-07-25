@@ -76,7 +76,7 @@ flowchart TB
 | AI chat | **OpenAI** (`gpt-4o-mini` default) | Reliable grounded answers at low cost for enterprise Q&A. |
 | Embeddings | **OpenAI** (`text-embedding-3-small`) | 1536-dim vectors; good quality/cost for semantic search. |
 | Chunking | **LangChain** `RecursiveCharacterTextSplitter` | Proven splitting (size 1000, overlap 200) for RAG quality. |
-| PDF / DOCX parse | **pdf-parse** / **mammoth** | Extract text before embedding. |
+| PDF / DOCX parse | **unpdf** / **mammoth** | Extract text before embedding (serverless-safe). |
 | Validation | **Zod** | Runtime validation for env vars and API bodies. |
 | Schema docs | **Prisma schema** | Documents the data model; runtime queries use Supabase client (vectors + Storage). |
 | Passwords | **bcryptjs** | Industry-standard hashing for credential login. |
@@ -161,7 +161,7 @@ sequenceDiagram
   Admin->>API: Upload PDF/DOCX
   API->>Storage: Store file in documents bucket
   API->>DB: Insert knowledge_base status=processing
-  API->>API: Extract text pdf-parse or mammoth
+  API->>API: Extract text unpdf or mammoth
   API->>API: Chunk with LangChain
   API->>OpenAI: Embed chunks
   API->>DB: Insert document_chunks + embeddings
