@@ -19,8 +19,10 @@ import { Badge } from "@/components/ui/badge";
 import { CitationCard } from "@/components/chat/citation-card";
 import { DocViewerModal } from "@/components/document/doc-viewer-modal";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { selectFieldClassName } from "@/lib/field-styles";
 import { apiFetch } from "@/lib/client-api";
+import { toast } from "sonner";
 import type { Citation, ConfidenceLevel, ConversationSummary } from "@/types";
 
 type Message = {
@@ -120,6 +122,7 @@ export function ChatPanel({
   showCollectionPicker?: boolean;
   readyDocumentCount?: number;
 }) {
+  const confirm = useConfirm();
   const [messages, setMessages] = useState<Message[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -225,12 +228,20 @@ export function ChatPanel({
   }
 
   async function deleteConversation(id: string) {
-    if (!confirm("Delete this conversation?")) return;
+    const ok = await confirm({
+      title: "Delete this conversation?",
+      description: "This chat and its messages will be removed permanently.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
     if (!res.ok) {
       setError("Could not delete conversation");
+      toast.error("Could not delete conversation");
       return;
     }
+    toast.success("Conversation deleted");
     if (conversationId === id) startNewChat();
     await refreshConversations();
   }

@@ -3,9 +3,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type Collection = {
   id: string;
@@ -29,6 +31,7 @@ export function CollectionManager({
   documents: Doc[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [collections, setCollections] = useState(initial);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -68,9 +71,12 @@ export function CollectionManager({
       setName("");
       setDescription("");
       setSelectedDocs([]);
+      toast.success("Collection created");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Create failed");
+      const message = err instanceof Error ? err.message : "Create failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -100,16 +106,26 @@ export function CollectionManager({
   }
 
   async function remove(id: string) {
-    if (!confirm("Delete this collection?")) return;
+    const ok = await confirm({
+      title: "Delete this collection?",
+      description:
+        "Documents stay in the knowledge base — only this collection grouping is removed.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/collections/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Delete failed");
       setCollections((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Collection deleted");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      const message = err instanceof Error ? err.message : "Delete failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }

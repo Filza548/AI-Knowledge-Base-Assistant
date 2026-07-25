@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/client-api";
+import { toast } from "sonner";
 
 type Stage = "idle" | "uploading" | "indexing" | "done" | "failed";
 
@@ -104,8 +105,10 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       if (doc.status === "failed") {
         setStage("failed");
         setLastFailedId(doc.id);
-        setError(doc.error_message ?? "Indexing failed");
+        const msg = doc.error_message ?? "Indexing failed";
+        setError(msg);
         setMessage(null);
+        toast.error(msg);
         return;
       }
 
@@ -113,12 +116,15 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
         if (doc.status === "processing") {
           setStage("indexing");
           setMessage("Indexing & embedding in the background…");
+          toast.message("Indexing document…");
           const ready = await pollUntilSettled(doc.id);
           setStage("done");
           setMessage(`Ready: ${ready.document_name}`);
+          toast.success(`Ready: ${ready.document_name}`);
         } else {
           setStage("done");
           setMessage(`Ready: ${doc.document_name}`);
+          toast.success(`Ready: ${doc.document_name}`);
         }
         setFile(null);
         onUploaded?.();
@@ -128,6 +134,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
 
       setStage("done");
       setMessage(`Uploaded: ${doc.document_name}`);
+      toast.success(`Uploaded: ${doc.document_name}`);
       setFile(null);
       onUploaded?.();
       router.refresh();
@@ -138,8 +145,10 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
           ? String((err as { documentId?: string }).documentId)
           : null;
       if (failedId) setLastFailedId(failedId);
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setError(message);
       setMessage(null);
+      toast.error(message);
     }
   }
 
@@ -157,10 +166,13 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       setStage("done");
       setMessage("Reindex complete");
       setLastFailedId(null);
+      toast.success("Reindex complete");
       router.refresh();
     } catch (err) {
       setStage("failed");
-      setError(err instanceof Error ? err.message : "Reindex failed");
+      const message = err instanceof Error ? err.message : "Reindex failed";
+      setError(message);
+      toast.error(message);
     }
   }
 

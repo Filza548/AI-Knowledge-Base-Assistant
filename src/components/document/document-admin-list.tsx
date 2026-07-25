@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type Doc = {
   id: string;
@@ -17,20 +19,31 @@ type Doc = {
 
 export function DocumentAdminList({ documents }: { documents: Doc[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function remove(id: string) {
-    if (!confirm("Delete this document and its embeddings?")) return;
+    const ok = await confirm({
+      title: "Delete this document?",
+      description:
+        "This removes the file, embeddings, and related chunks. This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusyId(id);
     setError(null);
     try {
       const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Delete failed");
+      toast.success("Document deleted");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Delete failed");
+      const message = err instanceof Error ? err.message : "Delete failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusyId(null);
     }
@@ -43,9 +56,12 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
       const res = await fetch(`/api/documents/${id}/reindex`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Reindex failed");
+      toast.success("Reindex complete");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Reindex failed");
+      const message = err instanceof Error ? err.message : "Reindex failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusyId(null);
     }
