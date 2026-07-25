@@ -22,6 +22,19 @@ async function findUserByEmail(email: string) {
   return data;
 }
 
+/** Lookup without password_hash — used by Google SSO when column may be optional. */
+async function findAppUserByEmail(email: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, name, email, role")
+    .eq("email", email.toLowerCase())
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
 /** Find or create an app profile for a Google sign-in. */
 async function ensureGoogleAppUser(input: {
   email: string;
@@ -29,8 +42,22 @@ async function ensureGoogleAppUser(input: {
   image?: string | null;
 }) {
   const email = input.email.toLowerCase().trim();
-  const existing = await findUserByEmail(email);
-  if (existing) return existing;
+  const existing = await findAppUserByEmail(email);
+  if (existing) {
+    // Ensure Google users can access Admin Settings for this workspace demo.
+    if (existing.role !== "admin") {
+      const supabase = getSupabaseAdmin();
+      const { data, error } = await supabase
+        .from("users")
+        .update({ role: "admin" })
+        .eq("id", existing.id)
+        .select("id, name, email, role")
+        .single();
+      if (error) throw error;
+      return data;
+    }
+    return existing;
+  }
 
   const supabase = getSupabaseAdmin();
   const name =
@@ -43,10 +70,9 @@ async function ensureGoogleAppUser(input: {
     .insert({
       name,
       email,
-      password_hash: null,
-      role: "viewer",
+      role: "admin",
     })
-    .select("id, name, email, password_hash, role")
+    .select("id, name, email, role")
     .single();
 
   if (error) throw error;
@@ -114,6 +140,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id!;
+        token.role = user.role as UserRole;
+        if (user.name) token.name = user.name;
+      }
+
+      // Keep role fresh from DB (e.g. after promoting Google users to admin)
+      if (token.id) {
+        try {
+          const supabase = getSupabaseAdmin();
+          const { data } = await supabase
+            .from("users")
+            .select("role, name")
+            .eq("id", token.id as string)
+            .maybeSingle();
+          if (data?.role) token.role = data.role as UserRole;
+          if (data?.name) token.name = data.name;
+        } catch (err) {
+          console.error("JWT role refresh failed:", err);
+        }
+      }
+
+      return token;
+    },
     async signIn({ user, account, profile }) {
       if (account?.provider === "credentials") return true;
       if (account?.provider !== "google") return false;

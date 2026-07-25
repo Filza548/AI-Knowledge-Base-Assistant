@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { upsertSupabaseAuthUser } from "@/lib/supabase/auth-users";
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
       limit: 10,
     });
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = registerUserSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(400, parsed.error.issues[0]?.message ?? "Invalid input", "validation_error");

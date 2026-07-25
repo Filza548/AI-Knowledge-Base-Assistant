@@ -29,14 +29,21 @@ const links = [
   {
     href: "/dashboard",
     label: "Dashboard",
-    hint: "Ask & chat",
+    hint: "Search · chat · citations",
     icon: LayoutDashboard,
   },
   {
     href: "/document-workspace",
     label: "Documents",
-    hint: "Summarize · extract",
+    hint: "Summarize · extract · ask",
     icon: BookOpen,
+  },
+  {
+    href: "/admin-settings",
+    label: "Admin Settings",
+    hint: "Upload · users · analytics",
+    icon: Settings,
+    adminOnly: true,
   },
 ];
 
@@ -109,7 +116,9 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
             Navigate
           </p>
         ) : null}
-        {links.map((link) => {
+        {links
+          .filter((link) => !link.adminOnly || role === "admin")
+          .map((link) => {
           const Icon = link.icon;
           const active = pathname.startsWith(link.href);
           return (
@@ -144,36 +153,6 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
             </Link>
           );
         })}
-        {role === "admin" ? (
-          <Link
-            href="/admin-settings"
-            title="Admin Settings"
-            className={cn(
-              "relative flex items-center rounded-xl transition-colors",
-              open ? "gap-2.5 px-3 py-2.5" : "justify-center px-2 py-3",
-              pathname.startsWith("/admin-settings")
-                ? "bg-primary/20 text-white"
-                : "text-sidebar-fg/70 hover:bg-white/5 hover:text-white",
-            )}
-          >
-            {pathname.startsWith("/admin-settings") ? (
-              <motion.span
-                layoutId="sidebar-active"
-                className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-accent"
-                transition={{ type: "spring", stiffness: 380, damping: 30 }}
-              />
-            ) : null}
-            <Settings className="h-4 w-4 shrink-0" />
-            {open ? (
-              <span className="min-w-0">
-                <span className="block text-sm font-medium">Admin Settings</span>
-                <span className="block truncate text-[11px] text-sidebar-fg/45">
-                  Upload · users · analytics
-                </span>
-              </span>
-            ) : null}
-          </Link>
-        ) : null}
       </nav>
 
       <div

@@ -78,6 +78,12 @@ export function DashboardIntro({ name }: { name?: string | null }) {
               >
                 Open documents
               </Link>
+              <Link
+                href="/admin-settings"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-surface-muted"
+              >
+                Admin Settings
+              </Link>
             </div>
           </div>
           <div className="relative min-h-[220px] sm:min-h-[280px]">

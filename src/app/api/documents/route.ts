@@ -89,20 +89,22 @@ export async function POST(req: Request) {
       )
       .single();
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      try {
+        await supabase.storage.from("documents").remove([storagePath]);
+      } catch {
+        // best-effort storage cleanup
+      }
+      throw insertError;
+    }
 
-    // Index asynchronously without blocking response too long — await for MVP reliability
-    await indexDocument(documentId, buffer, fileType);
+    // Index in the background so large PDFs don't timeout the upload HTTP request.
+    // Client polls GET /api/documents/[id] until status is ready | failed.
+    void indexDocument(documentId, buffer, fileType).catch((err) => {
+      console.error("[documents] background index failed", documentId, err);
+    });
 
-    const { data: refreshed } = await supabase
-      .from("knowledge_base")
-      .select(
-        "id, document_name, file_type, file_size, status, vector_collection_ref, uploaded_by, created_at, updated_at, error_message",
-      )
-      .eq("id", documentId)
-      .single();
-
-    return jsonOk({ document: refreshed ?? doc }, 201);
+    return jsonOk({ document: doc }, 201);
   } catch (err) {
     return handleRouteError(err);
   }

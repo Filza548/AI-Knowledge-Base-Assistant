@@ -1,4 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import {
   resolveCollectionDocumentIds,
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = searchSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(

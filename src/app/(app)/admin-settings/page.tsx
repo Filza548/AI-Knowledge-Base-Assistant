@@ -16,22 +16,33 @@ export default async function AdminSettingsPage() {
   if (session.user.role !== "admin") redirect("/dashboard");
 
   const supabase = getSupabaseAdmin();
-  const [{ data: documents }, { data: users }, { data: collections }, { data: links }] =
-    await Promise.all([
-      supabase
-        .from("knowledge_base")
-        .select("id, document_name, status, file_type, created_at, error_message")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("users")
-        .select("id, name, email, role, created_at")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("collections")
-        .select("id, name, description, created_by, created_at, updated_at")
-        .order("name", { ascending: true }),
-      supabase.from("collection_documents").select("collection_id, document_id"),
-    ]);
+  const [documentsRes, usersRes, collectionsRes, linksRes] = await Promise.all([
+    supabase
+      .from("knowledge_base")
+      .select("id, document_name, status, file_type, created_at, error_message")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("users")
+      .select("id, name, email, role, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("collections")
+      .select("id, name, description, created_by, created_at, updated_at")
+      .order("name", { ascending: true })
+      .limit(200),
+    supabase.from("collection_documents").select("collection_id, document_id"),
+  ]);
+
+  const queryError =
+    documentsRes.error ?? usersRes.error ?? collectionsRes.error ?? linksRes.error;
+  if (queryError) throw queryError;
+
+  const documents = documentsRes.data;
+  const users = usersRes.data;
+  const collections = collectionsRes.data;
+  const links = linksRes.data;
 
   const byCollection = new Map<string, string[]>();
   for (const link of links ?? []) {

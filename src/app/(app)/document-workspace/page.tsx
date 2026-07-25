@@ -5,11 +5,13 @@ export const dynamic = "force-dynamic";
 
 export default async function DocumentWorkspacePage() {
   const supabase = getSupabaseAdmin();
-  const { data: documents } = await supabase
+  const { data: documents, error } = await supabase
     .from("knowledge_base")
     .select("id, document_name, status, file_type, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (error) throw error;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">

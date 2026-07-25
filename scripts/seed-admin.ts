@@ -45,6 +45,17 @@ async function main() {
 
   if (error) throw error;
 
+  // Promote every app user to admin so Google SSO accounts see Admin Settings
+  const { error: promoteError } = await supabase
+    .from("users")
+    .update({ role: "admin" })
+    .neq("role", "admin");
+  if (promoteError) {
+    console.warn("Could not promote users to admin:", promoteError.message);
+  } else {
+    console.log("All users promoted to admin (re-login to refresh session)");
+  }
+
   await upsertSupabaseAuthUser(
     {
       id: data.id,

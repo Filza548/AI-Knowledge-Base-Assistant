@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
@@ -8,6 +8,7 @@ import {
   Download,
   MessageSquarePlus,
   Send,
+  Square,
   Trash2,
   User,
 } from "lucide-react";
@@ -19,6 +20,7 @@ import { CitationCard } from "@/components/chat/citation-card";
 import { DocViewerModal } from "@/components/document/doc-viewer-modal";
 import { LogoMark } from "@/components/brand/logo-mark";
 import { selectFieldClassName } from "@/lib/field-styles";
+import { apiFetch } from "@/lib/client-api";
 import type { Citation, ConfidenceLevel, ConversationSummary } from "@/types";
 
 type Message = {
@@ -36,6 +38,13 @@ type CollectionOption = {
   name: string;
   document_count?: number;
 };
+
+function newId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function levelFromScore(score?: number | null): ConfidenceLevel {
   if (score == null || score <= 0) return "none";
@@ -75,13 +84,19 @@ function exportMarkdown(content: string, citations?: Citation[]) {
   const a = document.createElement("a");
   a.href = url;
   a.download = "answer.md";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-2 text-sm text-text-secondary">
+    <div
+      className="flex items-center gap-2 text-sm text-text-secondary"
+      aria-live="polite"
+    >
+      <span className="sr-only">Assistant is typing</span>
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">
         <Bot className="h-4 w-4" />
       </div>
@@ -98,15 +113,18 @@ export function ChatPanel({
   documentId,
   showHistory = true,
   showCollectionPicker = true,
+  readyDocumentCount,
 }: {
   documentId?: string;
   showHistory?: boolean;
   showCollectionPicker?: boolean;
+  readyDocumentCount?: number;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFailedQuery, setLastFailedQuery] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [collections, setCollections] = useState<CollectionOption[]>([]);
@@ -118,9 +136,13 @@ export function ChatPanel({
     snippet: string;
   } | null>(null);
 
+  const listRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const loadSeqRef = useRef(0);
+
   const refreshConversations = useCallback(async () => {
     if (!showHistory) return;
-    const res = await fetch("/api/conversations");
+    const res = await apiFetch("/api/conversations");
     const json = await res.json();
     if (res.ok) setConversations(json.conversations ?? []);
   }, [showHistory]);
@@ -128,24 +150,46 @@ export function ChatPanel({
   useEffect(() => {
     refreshConversations().catch(() => undefined);
     if (showCollectionPicker && !documentId) {
-      fetch("/api/collections")
-        .then((r) => r.json())
-        .then((j) => setCollections(j.collections ?? []))
+      apiFetch("/api/collections")
+        .then(async (r) => {
+          if (!r.ok) return;
+          const j = await r.json();
+          setCollections(j.collections ?? []);
+        })
         .catch(() => undefined);
     }
-    fetch("/api/suggestions")
-      .then((r) => r.json())
-      .then((j) => setSuggestions(j.suggestions ?? []))
+    apiFetch("/api/suggestions")
+      .then(async (r) => {
+        if (!r.ok) return;
+        const j = await r.json();
+        setSuggestions(j.suggestions ?? []);
+      })
       .catch(() => undefined);
   }, [documentId, refreshConversations, showCollectionPicker]);
 
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
   async function loadConversation(id: string) {
+    const seq = ++loadSeqRef.current;
+    abortRef.current?.abort();
     setError(null);
+    setLastFailedQuery(null);
     setLoading(true);
     try {
-      const res = await fetch(`/api/conversations/${id}`);
+      const res = await apiFetch(`/api/conversations/${id}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Failed to load chat");
+      if (seq !== loadSeqRef.current) return;
       setConversationId(id);
       setCollectionId(json.conversation?.collection_id ?? "");
       setMessages(
@@ -163,33 +207,50 @@ export function ChatPanel({
         ),
       );
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : "Failed to load chat");
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
   }
 
   function startNewChat() {
+    abortRef.current?.abort();
     setConversationId(null);
     setMessages([]);
     setError(null);
+    setLastFailedQuery(null);
     setQuery("");
+    setCollectionId("");
   }
 
   async function deleteConversation(id: string) {
     if (!confirm("Delete this conversation?")) return;
-    const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
-    if (!res.ok) return;
+    const res = await apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      setError("Could not delete conversation");
+      return;
+    }
     if (conversationId === id) startNewChat();
     await refreshConversations();
+  }
+
+  function stopGenerating() {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
   }
 
   async function sendQuery(text: string) {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: newId(),
       role: "user",
       content: trimmed,
     };
@@ -197,9 +258,10 @@ export function ChatPanel({
     setQuery("");
     setLoading(true);
     setError(null);
+    setLastFailedQuery(null);
 
     try {
-      const res = await fetch("/api/chat", {
+      const res = await apiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,6 +270,7 @@ export function ChatPanel({
           collectionId: !documentId && collectionId ? collectionId : undefined,
           conversationId: conversationId ?? undefined,
         }),
+        signal: controller.signal,
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error ?? "Chat failed");
@@ -219,19 +282,26 @@ export function ChatPanel({
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: newId(),
           role: "assistant",
           content: json.answer,
           citations: json.citations ?? [],
           confidence: json.confidence,
-          confidenceLevel: json.confidenceLevel ?? levelFromScore(json.confidence),
+          confidenceLevel:
+            json.confidenceLevel ?? levelFromScore(json.confidence),
           followUps: json.followUps ?? [],
         },
       ]);
       await refreshConversations();
     } catch (err) {
+      if (controller.signal.aborted) {
+        setError("Generation stopped");
+        return;
+      }
+      setLastFailedQuery(trimmed);
       setError(err instanceof Error ? err.message : "Chat failed");
     } finally {
+      if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
     }
   }
@@ -241,20 +311,25 @@ export function ChatPanel({
     await sendQuery(query);
   }
 
+  const kbEmpty = readyDocumentCount === 0;
   const chips =
-    suggestions.length > 0
-      ? suggestions
-      : [
-          "What is the leave policy?",
-          "Summarize onboarding steps",
-          "Where is the reimbursement process?",
-        ];
+    kbEmpty
+      ? []
+      : suggestions.length > 0
+        ? suggestions
+        : [
+            "What is the leave policy?",
+            "Summarize onboarding steps",
+            "Where is the reimbursement process?",
+          ];
 
   return (
     <>
-      <div className={`grid gap-4 ${showHistory ? "lg:grid-cols-[240px_1fr]" : ""}`}>
+      <div
+        className={`grid gap-4 ${showHistory ? "lg:grid-cols-[240px_1fr]" : ""}`}
+      >
         {showHistory ? (
-          <Card className="h-[calc(100vh-10rem)] overflow-hidden">
+          <Card className="h-[calc(100dvh-10rem)] overflow-hidden max-lg:order-2 max-lg:h-auto max-lg:max-h-56">
             <CardHeader className="space-y-3 border-b border-border p-4">
               <CardTitle className="text-base">Chats</CardTitle>
               <Button size="sm" className="w-full" onClick={startNewChat}>
@@ -281,7 +356,7 @@ export function ChatPanel({
                   </button>
                   <button
                     type="button"
-                    className={`shrink-0 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 ${
+                    className={`shrink-0 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 ${
                       conversationId === c.id
                         ? "hover:bg-primary-hover"
                         : "hover:bg-border"
@@ -295,14 +370,14 @@ export function ChatPanel({
               ))}
               {!conversations.length ? (
                 <p className="px-2 py-4 text-xs text-text-secondary">
-                  No saved chats yet.
+                  No saved chats yet. Ask a question to start one.
                 </p>
               ) : null}
             </CardContent>
           </Card>
         ) : null}
 
-        <Card className="flex h-[calc(100vh-10rem)] flex-col overflow-hidden">
+        <Card className="flex h-[calc(100dvh-10rem)] flex-col overflow-hidden max-lg:order-1 max-lg:h-[min(70dvh,36rem)]">
           <CardHeader className="space-y-3 border-b border-border">
             <div>
               <CardTitle>Knowledge Chat</CardTitle>
@@ -311,24 +386,36 @@ export function ChatPanel({
               </p>
             </div>
             {showCollectionPicker && !documentId ? (
-              <select
-                className={`${selectFieldClassName} h-10`}
-                value={collectionId}
-                onChange={(e) => setCollectionId(e.target.value)}
-                disabled={Boolean(conversationId)}
-              >
-                <option value="">All documents</option>
-                {collections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.document_count != null ? ` (${c.document_count})` : ""}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-1">
+                <label htmlFor="chat-collection" className="sr-only">
+                  Collection scope
+                </label>
+                <select
+                  id="chat-collection"
+                  className={`${selectFieldClassName} h-10`}
+                  value={collectionId}
+                  onChange={(e) => setCollectionId(e.target.value)}
+                  disabled={Boolean(conversationId)}
+                >
+                  <option value="">All documents</option>
+                  {collections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {c.document_count != null ? ` (${c.document_count})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             ) : null}
           </CardHeader>
           <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden p-0">
-            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+            <div
+              ref={listRef}
+              role="log"
+              aria-live="polite"
+              aria-relevant="additions"
+              className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
+            >
               {messages.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, y: 12 }}
@@ -341,26 +428,29 @@ export function ChatPanel({
                       Ask the knowledge base
                     </p>
                     <p className="max-w-md text-sm text-text-secondary">
-                      The knowledge base is ready. Ask about policies, SOPs, or
-                      product docs.
+                      {kbEmpty
+                        ? "No indexed documents yet. An admin needs to upload PDFs or DOCX from Admin Settings before chat can answer from your knowledge base."
+                        : "Ask about policies, SOPs, or product docs — answers include citations when sources exist."}
                     </p>
                   </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {chips.map((s, i) => (
-                      <motion.button
-                        key={s}
-                        type="button"
-                        custom={i}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 + i * 0.07 }}
-                        onClick={() => sendQuery(s)}
-                        className="rounded-full border border-border bg-surface-muted px-3.5 py-1.5 text-left text-xs text-foreground transition hover:border-primary/40 hover:bg-surface hover:shadow-sm"
-                      >
-                        {s}
-                      </motion.button>
-                    ))}
-                  </div>
+                  {chips.length > 0 ? (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {chips.map((s, i) => (
+                        <motion.button
+                          key={s}
+                          type="button"
+                          custom={i}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.1 + i * 0.07 }}
+                          onClick={() => sendQuery(s)}
+                          className="rounded-full border border-border bg-surface-muted px-3.5 py-1.5 text-left text-xs text-foreground transition hover:border-primary/40 hover:bg-surface hover:shadow-sm"
+                        >
+                          {s}
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : null}
                 </motion.div>
               ) : null}
 
@@ -406,7 +496,13 @@ export function ChatPanel({
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => navigator.clipboard.writeText(m.content)}
+                            onClick={() => {
+                              void navigator.clipboard
+                                ?.writeText(m.content)
+                                .catch(() =>
+                                  setError("Clipboard permission denied"),
+                                );
+                            }}
                           >
                             <Copy className="h-3.5 w-3.5" />
                             Copy
@@ -415,7 +511,9 @@ export function ChatPanel({
                             type="button"
                             size="sm"
                             variant="outline"
-                            onClick={() => exportMarkdown(m.content, m.citations)}
+                            onClick={() =>
+                              exportMarkdown(m.content, m.citations)
+                            }
                           >
                             <Download className="h-3.5 w-3.5" />
                             Export
@@ -477,16 +575,35 @@ export function ChatPanel({
               </AnimatePresence>
 
               {loading ? <TypingIndicator /> : null}
-              {error ? <p className="text-sm text-danger">{error}</p> : null}
+              {error ? (
+                <div className="space-y-2" role="alert">
+                  <p className="text-sm text-danger">{error}</p>
+                  {lastFailedQuery && !loading ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => sendQuery(lastFailedQuery)}
+                    >
+                      Retry last question
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             <form onSubmit={onSubmit} className="border-t border-border p-4">
               <div className="flex gap-2">
+                <label htmlFor="chat-composer" className="sr-only">
+                  Message
+                </label>
                 <Textarea
+                  id="chat-composer"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ask the knowledge base…"
                   className="min-h-[52px] resize-none"
+                  maxLength={4000}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -494,20 +611,26 @@ export function ChatPanel({
                     }
                   }}
                 />
-                <Button
-                  type="submit"
-                  disabled={loading || !query.trim()}
-                  className="h-[52px] px-4"
-                  aria-label="Send"
-                >
-                  <motion.span
-                    animate={loading ? { rotate: 180 } : { rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 260, damping: 18 }}
-                    className="inline-flex"
+                {loading ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-[52px] px-4"
+                    aria-label="Stop generating"
+                    onClick={stopGenerating}
+                  >
+                    <Square className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={!query.trim()}
+                    className="h-[52px] px-4"
+                    aria-label="Send"
                   >
                     <Send className="h-4 w-4" />
-                  </motion.span>
-                </Button>
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>

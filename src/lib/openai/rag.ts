@@ -14,8 +14,20 @@ export type RetrieveOptions = {
   matchCount?: number;
 };
 
-/** Cosine distance cutoff (Safa RAG). distance = 1 - similarity. */
-const MAX_RELEVANT_DISTANCE = 0.8;
+export type ChatHistoryTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type AnswerOptions = RetrieveOptions & {
+  /** Prior turns for multi-turn chat (not used for retrieval). */
+  history?: ChatHistoryTurn[];
+  /** Second LLM call — keep off the critical path unless explicitly requested. */
+  includeFollowUps?: boolean;
+};
+
+/** Cosine distance cutoff. distance = 1 - similarity. */
+const MAX_RELEVANT_DISTANCE = 0.55;
 
 const SYSTEM_PROMPT = `You are an internal knowledge assistant embedded in a company dashboard.
 
@@ -149,14 +161,14 @@ async function generateFollowUps(
 
 export async function answerWithRag(
   query: string,
-  options?: string | RetrieveOptions,
+  options?: string | AnswerOptions,
 ): Promise<RagAnswer> {
-  const retrieveOpts: RetrieveOptions =
+  const opts: AnswerOptions =
     typeof options === "string" || options == null
       ? { documentId: options }
       : options;
 
-  const matches = await retrieveChunks(query, retrieveOpts);
+  const matches = await retrieveChunks(query, opts);
   const citations = buildCitations(matches);
   const confidence =
     matches.length > 0
@@ -171,11 +183,20 @@ export async function answerWithRag(
   const openai = getOpenAI();
   const env = getEnv();
 
+  const history = (opts.history ?? [])
+    .filter((t) => t.content?.trim())
+    .slice(-6)
+    .map((t) => ({
+      role: t.role as "user" | "assistant",
+      content: t.content.slice(0, 4000),
+    }));
+
   const completion = await openai.chat.completions.create({
     model: env.OPENAI_CHAT_MODEL,
     temperature: 0.2,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
+      ...history,
       {
         role: "user",
         content: `Context:\n${context}\n\nQuestion: ${query}`,
@@ -186,10 +207,14 @@ export async function answerWithRag(
   const answer =
     completion.choices[0]?.message?.content?.trim() || NOT_FOUND_ANSWER;
 
-  const isNotFound = answer === NOT_FOUND_ANSWER;
+  const isNotFound =
+    answer === NOT_FOUND_ANSWER ||
+    answer.toLowerCase().includes("couldn't find this information");
   const finalCitations = isNotFound ? [] : citations;
   const finalConfidence = isNotFound ? 0 : confidence;
-  const followUps = await generateFollowUps(query, answer, finalCitations);
+  const followUps = opts.includeFollowUps
+    ? await generateFollowUps(query, answer, finalCitations)
+    : [];
 
   return {
     answer,

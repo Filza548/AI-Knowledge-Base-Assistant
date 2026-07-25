@@ -1,4 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { collectionUpdateSchema } from "@/lib/validations";
@@ -17,7 +18,7 @@ export async function PATCH(req: Request, { params }: Params) {
       throw new ApiError(400, "Invalid collection id", "validation_error");
     }
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = collectionUpdateSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(

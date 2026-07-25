@@ -26,7 +26,9 @@ export async function requireSession(opts?: {
       opts.windowMs ?? 60_000,
     );
     if (!result.ok) {
-      throw new ApiError(429, "Too many requests", "rate_limited");
+      throw new ApiError(429, "Too many requests. Try again shortly.", "rate_limited", {
+        "Retry-After": String(Math.max(1, result.retryAfterSec)),
+      });
     }
   }
 

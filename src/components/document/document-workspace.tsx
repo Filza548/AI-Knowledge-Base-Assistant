@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,24 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
     }
   }
 
+  if (!documents.length) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+          <p className="text-lg font-semibold tracking-tight">No documents yet</p>
+          <p className="max-w-md text-sm text-text-secondary">
+            Upload a PDF or DOCX from Admin Settings. After indexing finishes
+            (status: ready), you can summarize, extract metadata, and chat about
+            that file here.
+          </p>
+          <Button asChild>
+            <Link href="/admin-settings">Go to Admin Settings</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
       <Card className="h-fit">
@@ -74,11 +93,6 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
               </p>
             </button>
           ))}
-          {!documents.length ? (
-            <p className="text-sm text-text-secondary">
-              No documents yet. Upload from Admin.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
 
@@ -90,6 +104,12 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                 <div>
                   <CardTitle>{selected.document_name}</CardTitle>
                   <Badge className="mt-2">{selected.status}</Badge>
+                  {selected.status !== "ready" ? (
+                    <p className="mt-2 text-xs text-text-secondary">
+                      Wait until status is <strong>ready</strong> before
+                      summarize / extract / chat.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -112,33 +132,42 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
-                  <p className="mb-2 text-sm font-medium text-foreground">Summary</p>
+                  <p className="mb-2 text-sm font-medium text-foreground">
+                    Summary
+                  </p>
                   <p className="whitespace-pre-wrap text-sm text-text-secondary">
                     {summary ?? "Click Summarize to generate bullet points."}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
-                  <p className="mb-2 text-sm font-medium text-foreground">Metadata</p>
+                  <p className="mb-2 text-sm font-medium text-foreground">
+                    Metadata
+                  </p>
                   <p className="whitespace-pre-wrap text-sm text-text-secondary">
-                    {metadata ?? "Click Extract Metadata for structured fields."}
+                    {metadata ??
+                      "Click Extract Metadata for structured fields."}
                   </p>
                 </div>
                 {error ? (
-                  <p className="text-sm text-danger md:col-span-2">{error}</p>
+                  <p className="text-sm text-danger md:col-span-2" role="alert">
+                    {error}
+                  </p>
                 ) : null}
               </CardContent>
             </Card>
 
             <ChatPanel
+              key={selected.id}
               documentId={selected.id}
               showHistory={false}
               showCollectionPicker={false}
+              readyDocumentCount={selected.status === "ready" ? 1 : 0}
             />
           </>
         ) : (
           <Card>
             <CardContent className="py-12 text-center text-sm text-text-secondary">
-              Select a document to summarize, extract, or ask questions.
+              Select a document to get started.
             </CardContent>
           </Card>
         )}

@@ -1,4 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { conversationUpdateSchema } from "@/lib/validations";
@@ -70,7 +71,7 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id } = await params;
     const { supabase } = await ownedConversation(session.user.id, id);
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = conversationUpdateSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(

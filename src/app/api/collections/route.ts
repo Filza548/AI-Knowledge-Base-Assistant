@@ -1,4 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { collectionCreateSchema } from "@/lib/validations";
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
       limit: 20,
     });
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = collectionCreateSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(

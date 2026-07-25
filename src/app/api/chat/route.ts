@@ -1,4 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
+import { parseJsonBody } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import {
   answerWithRag,
@@ -13,6 +14,8 @@ function titleFromQuery(query: string) {
 }
 
 export async function POST(req: Request) {
+  let createdConversationId: string | null = null;
+
   try {
     const session = await requireSession({
       rateLimitKey: "chat",
@@ -20,7 +23,7 @@ export async function POST(req: Request) {
       windowMs: 60_000,
     });
 
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = chatSchema.safeParse(body);
     if (!parsed.success) {
       throw new ApiError(
@@ -46,6 +49,7 @@ export async function POST(req: Request) {
     }
 
     let activeConversationId = conversationId;
+    let history: { role: "user" | "assistant"; content: string }[] = [];
 
     if (activeConversationId) {
       const { data: existing, error } = await supabase
@@ -57,6 +61,20 @@ export async function POST(req: Request) {
       if (!existing || existing.user_id !== session.user.id) {
         throw new ApiError(404, "Conversation not found", "not_found");
       }
+
+      const { data: prior, error: priorError } = await supabase
+        .from("messages")
+        .select("role, content")
+        .eq("conversation_id", activeConversationId)
+        .order("created_at", { ascending: true })
+        .limit(12);
+      if (priorError) throw priorError;
+      history = (prior ?? [])
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
     } else {
       const { data: created, error } = await supabase
         .from("conversations")
@@ -70,57 +88,75 @@ export async function POST(req: Request) {
         .single();
       if (error) throw error;
       activeConversationId = created.id;
+      createdConversationId = created.id;
     }
 
-    await supabase.from("messages").insert({
+    // Generate first — only persist turns after a successful answer
+    const result = await answerWithRag(query, {
+      documentId,
+      documentIds,
+      history,
+      includeFollowUps: false,
+    });
+
+    const { error: userMsgError } = await supabase.from("messages").insert({
       conversation_id: activeConversationId,
       role: "user",
       content: query,
     });
+    if (userMsgError) throw userMsgError;
 
-    const result = await answerWithRag(query, {
-      documentId,
-      documentIds,
-    });
-
-    const similarities = result.citations.length
-      ? result.confidence
-      : 0;
-
-    await supabase.from("messages").insert({
+    const { error: assistantMsgError } = await supabase.from("messages").insert({
       conversation_id: activeConversationId,
       role: "assistant",
       content: result.answer,
       citations: result.citations,
       confidence: result.confidence,
     });
+    if (assistantMsgError) throw assistantMsgError;
 
     await supabase
       .from("conversations")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", activeConversationId);
-
-    // If still default title on first message of existing empty conv — refresh title
-    await supabase
-      .from("conversations")
-      .update({ title: titleFromQuery(query) })
+      .update({
+        updated_at: new Date().toISOString(),
+        title: titleFromQuery(query),
+      })
       .eq("id", activeConversationId)
       .eq("title", "New chat");
 
-    await supabase.from("search_logs").insert({
-      user_id: session.user.id,
-      query_text: query.slice(0, 4000),
-      documents_accessed: result.citations.map((c) => c.document_id),
-      source: "chat",
-      had_hits: result.citations.length > 0,
-      avg_similarity: similarities || null,
-    });
+    const uniqueDocIds = [
+      ...new Set(result.citations.map((c) => c.document_id)),
+    ];
+
+    void supabase
+      .from("search_logs")
+      .insert({
+        user_id: session.user.id,
+        query_text: query.slice(0, 4000),
+        documents_accessed: uniqueDocIds,
+        source: "chat",
+        had_hits: result.citations.length > 0,
+        avg_similarity: result.confidence || null,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[chat] search_logs insert failed", error);
+      });
 
     return jsonOk({
       ...result,
       conversationId: activeConversationId,
     });
   } catch (err) {
+    if (createdConversationId) {
+      try {
+        await getSupabaseAdmin()
+          .from("conversations")
+          .delete()
+          .eq("id", createdConversationId);
+      } catch {
+        // best-effort cleanup of empty conversation
+      }
+    }
     return handleRouteError(err);
   }
 }

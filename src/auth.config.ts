@@ -6,8 +6,8 @@ export const authConfig = {
   trustHost: true,
   session: {
     strategy: "jwt",
-    maxAge: 15 * 60,
-    updateAge: 5 * 60,
+    maxAge: 8 * 60 * 60,
+    updateAge: 30 * 60,
   },
   pages: {
     signIn: "/login",

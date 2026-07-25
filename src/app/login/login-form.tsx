@@ -18,6 +18,15 @@ const fadeUp = {
   }),
 };
 
+/** Only allow same-origin relative paths (block open redirects). */
+function safeCallbackUrl(raw: string | null): string {
+  if (!raw) return "/dashboard";
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("://")) {
+    return "/dashboard";
+  }
+  return raw;
+}
+
 export default function LoginForm({
   googleEnabled = false,
 }: {
@@ -25,7 +34,7 @@ export default function LoginForm({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
