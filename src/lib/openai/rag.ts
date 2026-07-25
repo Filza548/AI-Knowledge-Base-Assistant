@@ -39,11 +39,11 @@ const SYSTEM_PROMPT = `You are an internal knowledge assistant embedded in a com
 - Synthesize a clear, helpful answer from related excerpts — paraphrase is fine. Combine multiple excerpts when needed.
 - Prefer answering when the context is even partially related to the question. Do not refuse just because the wording differs.
 - Every claim in a substantive answer must cite its source inline in the format (Source: <document name>, Page <page number>). If a chunk has no page number, cite just (Source: <document name>).
-- Only if the context is empty or clearly unrelated, respond exactly: "I couldn't find this information in the knowledge base."
+- Only if the context is empty or clearly unrelated, respond exactly: "I can only answer questions related to the documentation."
 - Never invent facts that are not supported by the context.`;
 
 const NOT_FOUND_ANSWER =
-  "I couldn't find this information in the knowledge base.";
+  "I can only answer questions related to the documentation.";
 
 function confidenceLevel(score: number): ConfidenceLevel {
   if (score <= 0) return "none";
@@ -238,6 +238,7 @@ export async function answerWithRag(
 
   const isNotFound =
     answer === NOT_FOUND_ANSWER ||
+    answer.toLowerCase().includes("only answer questions related to the documentation") ||
     answer.toLowerCase().includes("couldn't find this information");
   const finalCitations = isNotFound ? [] : citations;
   const finalConfidence = isNotFound ? 0 : confidence;
