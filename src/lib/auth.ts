@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { authConfig } from "@/auth.config";
+import { applyProductionAuthUrl } from "@/lib/auth-url";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import {
   upsertSupabaseAuthUser,
@@ -10,6 +11,8 @@ import {
 } from "@/lib/supabase/auth-users";
 import { logActivity } from "@/lib/activity";
 import type { UserRole } from "@/types";
+
+applyProductionAuthUrl();
 
 async function findUserByEmail(email: string) {
   const supabase = getSupabaseAdmin();

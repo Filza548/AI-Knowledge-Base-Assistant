@@ -1,5 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@/types";
+import { applyProductionAuthUrl } from "@/lib/auth-url";
+
+applyProductionAuthUrl();
 
 /** Edge-safe Auth.js config (no Node-only imports). Used by proxy. */
 export const authConfig = {

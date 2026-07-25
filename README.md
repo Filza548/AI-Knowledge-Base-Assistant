@@ -243,7 +243,7 @@ In Vercel → Project → **Settings → Environment Variables**, add the same k
 | Variable | Notes |
 |----------|--------|
 | `AUTH_SECRET` | ≥32 chars |
-| `AUTH_URL` | `https://YOUR_APP.vercel.app` (or custom domain) |
+| `AUTH_URL` | **Must be** `https://YOUR_APP.vercel.app` (or custom domain). If you paste `http://localhost:3000` here, login redirects stay on localhost. |
 | `ENCRYPTION_KEY` | 64 hex chars |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role secret |
