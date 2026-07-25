@@ -41,6 +41,18 @@ export function AccountSettingsForm({
       return;
     }
 
+    if (nameChanged) {
+      if (
+        trimmedName.length < 2 ||
+        !/^[\p{L}][\p{L}\s'.-]*$/u.test(trimmedName)
+      ) {
+        setError(
+          "Name must use letters only (numbers like 123 are not allowed).",
+        );
+        return;
+      }
+    }
+
     if (changingPassword) {
       if (newPassword !== confirmPassword) {
         setError("New password and confirmation do not match.");
@@ -111,10 +123,15 @@ export function AccountSettingsForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          minLength={1}
+          minLength={2}
           maxLength={120}
           autoComplete="name"
+          title="Letters only — no numbers"
+          placeholder="Your name"
         />
+        <p className="text-xs text-text-secondary">
+          Letters only (spaces, hyphen, apostrophe allowed). No numbers.
+        </p>
       </div>
 
       <div className="space-y-3 rounded-2xl border border-border bg-surface p-4">

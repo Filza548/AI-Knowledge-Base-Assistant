@@ -13,9 +13,20 @@ const passwordSchema = z
   .regex(/[a-z]/, "Must include lowercase")
   .regex(/[0-9]/, "Must include a number");
 
+/** Person display name: letters only (spaces / hyphen / apostrophe ok). No digits. */
+export const displayNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Name must be at least 2 letters")
+  .max(120)
+  .regex(
+    /^[\p{L}][\p{L}\s'.-]*$/u,
+    "Name must use letters only (numbers like 123 are not allowed)",
+  );
+
 /** Admin creates an active user with a password (legacy / optional). */
 export const registerUserSchema = z.object({
-  name: z.string().trim().min(1).max(120),
+  name: displayNameSchema,
   email: z.string().email().max(255),
   password: passwordSchema,
   role: z.enum(["assistant", "admin"]).default("assistant"),
@@ -23,14 +34,14 @@ export const registerUserSchema = z.object({
 
 /** Public self-signup — waits for admin approval. */
 export const selfRegisterSchema = z.object({
-  name: z.string().trim().min(1).max(120),
+  name: displayNameSchema,
   email: z.string().email().max(255),
   password: passwordSchema,
 });
 
 /** Admin invite by email (no password — user sets it or uses Google). */
 export const inviteUserSchema = z.object({
-  name: z.string().trim().min(1).max(120),
+  name: displayNameSchema,
   email: z.string().email().max(255),
   role: z.enum(["assistant", "admin"]).default("assistant"),
 });
@@ -38,14 +49,14 @@ export const inviteUserSchema = z.object({
 /** Accept invite: set password and activate. */
 export const acceptInviteSchema = z.object({
   token: z.string().min(20).max(128),
-  name: z.string().trim().min(1).max(120).optional(),
+  name: displayNameSchema.optional(),
   password: passwordSchema,
 });
 
 /** Signed-in user updates own name / password (email is immutable). */
 export const updateProfileSchema = z
   .object({
-    name: z.string().trim().min(1).max(120).optional(),
+    name: displayNameSchema.optional(),
     currentPassword: z.string().min(1).max(128).optional(),
     newPassword: passwordSchema.optional(),
   })
