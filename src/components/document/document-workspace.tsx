@@ -46,12 +46,10 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-lg font-semibold tracking-tight">No documents yet</p>
           <p className="max-w-md text-sm text-text-secondary">
-            Upload a PDF or DOCX above. After indexing finishes (status: ready),
-            you can summarize, extract metadata, and chat about that file here.
+            An admin needs to upload and index company PDFs or DOCX. Once status
+            is ready, everyone can summarize, extract metadata, and ask questions
+            here.
           </p>
-          <Button asChild>
-            <a href="#upload">Go to upload</a>
-          </Button>
         </CardContent>
       </Card>
     );

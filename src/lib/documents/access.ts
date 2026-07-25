@@ -21,13 +21,22 @@ type KnowledgeRow = {
   vector_collection_ref?: string | null;
 };
 
-/** Admins may manage the full company library; everyone else only their uploads. */
-export function canManageAllDocuments(role?: UserRole | string | null) {
+/** Only admins may upload / delete / reindex the company knowledge base. */
+export function canManageDocuments(role?: UserRole | string | null) {
   return role === "admin";
 }
 
+/** @deprecated use canManageDocuments */
+export function canManageAllDocuments(role?: UserRole | string | null) {
+  return canManageDocuments(role);
+}
+
+/**
+ * Company knowledge base: every signed-in user can list / read documents.
+ * Admins manage the library; assistants only consume it for Q&A.
+ */
 export async function listAccessibleDocuments(
-  user: AccessUser,
+  _user: AccessUser,
   opts?: { readyOnly?: boolean; limit?: number },
 ): Promise<KnowledgeRow[]> {
   const supabase = getSupabaseAdmin();
@@ -39,9 +48,6 @@ export async function listAccessibleDocuments(
     .order("created_at", { ascending: false })
     .limit(opts?.limit ?? 200);
 
-  if (!canManageAllDocuments(user.role)) {
-    query = query.eq("uploaded_by", user.id);
-  }
   if (opts?.readyOnly) {
     query = query.eq("status", "ready");
   }
@@ -63,11 +69,11 @@ export async function getAccessibleDocumentIds(
 }
 
 /**
- * Load a document only if the caller owns it (or is admin).
- * Returns 404 (not 403) to avoid leaking existence of others' files.
+ * Any authenticated user may read company documents.
+ * Write operations stay admin-only at the route layer.
  */
 export async function requireDocumentAccess(
-  user: AccessUser,
+  _user: AccessUser,
   documentId: string,
 ): Promise<{
   supabase: ReturnType<typeof getSupabaseAdmin>;
@@ -78,26 +84,22 @@ export async function requireDocumentAccess(
   }
 
   const supabase = getSupabaseAdmin();
-  let query = supabase
+  const { data, error } = await supabase
     .from("knowledge_base")
     .select(
       "id, document_name, file_type, file_size, status, file_path, uploaded_by, created_at, updated_at, error_message, vector_collection_ref",
     )
-    .eq("id", documentId);
+    .eq("id", documentId)
+    .maybeSingle();
 
-  if (!canManageAllDocuments(user.role)) {
-    query = query.eq("uploaded_by", user.id);
-  }
-
-  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   if (!data) throw new ApiError(404, "Document not found", "not_found");
   return { supabase, document: data as KnowledgeRow };
 }
 
 /**
- * Constrain RAG / search to documents the user may read.
- * Collection filters are intersected with the caller's ACL.
+ * Chat / search scope over the shared company library (ready docs).
+ * Optional collection / single-document filters still apply.
  */
 export async function resolveReadableDocumentScope(
   user: AccessUser,
@@ -124,7 +126,7 @@ export async function resolveReadableDocumentScope(
   if (!scope.length) {
     throw new ApiError(
       400,
-      "No accessible documents in scope. Upload a document first.",
+      "No company documents are ready yet. An admin must upload and index documents first.",
       "empty_scope",
     );
   }

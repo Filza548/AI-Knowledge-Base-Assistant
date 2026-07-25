@@ -456,7 +456,7 @@ export function ChatPanel({
                     </p>
                     <p className="max-w-md text-sm text-text-secondary">
                       {kbEmpty
-                        ? "No indexed documents yet. Upload PDFs or DOCX from Documents — once status is ready, chat can answer from your knowledge base."
+                        ? "No indexed company documents yet. An admin must upload PDFs or DOCX — once status is ready, you can ask questions from the knowledge base."
                         : "Ask about policies, SOPs, or product docs — answers include citations when sources exist."}
                     </p>
                   </div>

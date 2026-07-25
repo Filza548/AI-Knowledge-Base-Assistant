@@ -11,7 +11,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function POST(_req: Request, { params }: Params) {
   try {
     const session = await requireSession({
-      roles: ["admin", "assistant"],
+      roles: ["admin"],
       rateLimitKey: "reindex",
       limit: 10,
     });

@@ -45,7 +45,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await requireSession({
-      roles: ["admin", "assistant"],
+      roles: ["admin"],
       rateLimitKey: "documents-upload",
       limit: 10,
       windowMs: 60_000,

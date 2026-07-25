@@ -36,7 +36,7 @@ const links = [
   {
     href: "/document-workspace",
     label: "Documents",
-    hint: "Summarize · extract · ask",
+    hint: "Browse company knowledge",
     icon: BookOpen,
   },
   {

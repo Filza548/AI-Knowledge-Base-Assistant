@@ -1,13 +1,10 @@
 import { handleRouteError, jsonOk } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import {
-  canManageAllDocuments,
-  listAccessibleDocuments,
-} from "@/lib/documents/access";
+import { listAccessibleDocuments } from "@/lib/documents/access";
 
 const FALLBACK = [
-  "What is covered in my documents?",
+  "What is covered in the company documents?",
   "Summarize the main points",
   "What key policies should I know?",
   "List important dates or deadlines",
@@ -23,18 +20,13 @@ export async function GET() {
       limit: 4,
     });
 
-    let logsQuery = supabase
+    const { data: logs } = await supabase
       .from("search_logs")
       .select("query_text")
       .eq("had_hits", true)
+      .eq("user_id", session.user.id)
       .order("timestamp", { ascending: false })
       .limit(8);
-
-    if (!canManageAllDocuments(session.user.role)) {
-      logsQuery = logsQuery.eq("user_id", session.user.id);
-    }
-
-    const { data: logs } = await logsQuery;
 
     const fromDocs = (docs ?? []).map(
       (d) => `What does ${d.document_name ?? "this document"} cover?`,

@@ -1,10 +1,7 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { decryptAtRest } from "@/lib/security/encryption";
-import {
-  canManageAllDocuments,
-  requireDocumentAccess,
-} from "@/lib/documents/access";
+import { requireDocumentAccess } from "@/lib/documents/access";
 import { logActivity } from "@/lib/activity";
 
 type Params = { params: Promise<{ id: string }> };
@@ -37,21 +34,13 @@ export async function GET(_req: Request, { params }: Params) {
 export async function DELETE(_req: Request, { params }: Params) {
   try {
     const session = await requireSession({
-      roles: ["admin", "assistant"],
+      roles: ["admin"],
       rateLimitKey: "documents-delete",
       limit: 20,
     });
 
     const { id } = await params;
     const { supabase, document } = await requireDocumentAccess(session.user, id);
-
-    // Assistants may only delete their own; admin may delete any (enforced above).
-    if (
-      !canManageAllDocuments(session.user.role) &&
-      document.uploaded_by !== session.user.id
-    ) {
-      throw new ApiError(404, "Document not found", "not_found");
-    }
 
     try {
       const storagePath = decryptAtRest(String(document.file_path));
