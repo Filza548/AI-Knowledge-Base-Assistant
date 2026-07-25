@@ -57,7 +57,7 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
       {documents.map((doc) => (
         <div
           key={doc.id}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-surface px-4 py-3"
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-foreground">
@@ -68,7 +68,9 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
               <Badge>{doc.status}</Badge>
             </div>
             {doc.status === "failed" && doc.error_message ? (
-              <p className="mt-1 text-xs text-danger">{doc.error_message}</p>
+              <p className="mt-1 break-words text-xs text-danger">
+                {doc.error_message}
+              </p>
             ) : null}
           </div>
           <div className="flex shrink-0 gap-2">
@@ -78,9 +80,10 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
                 size="sm"
                 disabled={busyId === doc.id}
                 onClick={() => reindex(doc.id)}
+                className="flex-1 sm:flex-none"
               >
                 <RefreshCw className="h-4 w-4" />
-                Reindex
+                <span className="sm:inline">Reindex</span>
               </Button>
             )}
             <Button
@@ -88,9 +91,10 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
               size="sm"
               disabled={busyId === doc.id}
               onClick={() => remove(doc.id)}
+              className="flex-1 sm:flex-none"
             >
               <Trash2 className="h-4 w-4" />
-              Delete
+              <span className="sm:inline">Delete</span>
             </Button>
           </div>
         </div>

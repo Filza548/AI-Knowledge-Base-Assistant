@@ -139,14 +139,15 @@ export function CollectionManager({
           {readyDocs.map((d) => (
             <label
               key={d.id}
-              className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface"
+              className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface"
             >
               <input
                 type="checkbox"
                 checked={selectedDocs.includes(d.id)}
                 onChange={() => toggleDoc(d.id)}
+                className="shrink-0"
               />
-              {d.document_name}
+              <span className="truncate">{d.document_name}</span>
             </label>
           ))}
           {!readyDocs.length ? (
@@ -164,9 +165,11 @@ export function CollectionManager({
             key={c.id}
             className="rounded-2xl border border-border bg-surface px-4 py-3"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">{c.name}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {c.name}
+                </p>
                 {c.description ? (
                   <p className="text-xs text-text-secondary">{c.description}</p>
                 ) : null}
@@ -183,6 +186,7 @@ export function CollectionManager({
                     setEditingId(editingId === c.id ? null : c.id);
                     setSelectedDocs(c.document_ids ?? []);
                   }}
+                  className="flex-1 sm:flex-none"
                 >
                   Edit docs
                 </Button>
@@ -202,14 +206,15 @@ export function CollectionManager({
                   {readyDocs.map((d) => (
                     <label
                       key={d.id}
-                      className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface-muted"
+                      className="flex min-w-0 items-center gap-2 rounded-lg px-1 py-1 text-sm text-foreground hover:bg-surface-muted"
                     >
                       <input
                         type="checkbox"
                         checked={selectedDocs.includes(d.id)}
                         onChange={() => toggleDoc(d.id)}
+                        className="shrink-0"
                       />
-                      {d.document_name}
+                      <span className="truncate">{d.document_name}</span>
                     </label>
                   ))}
                 </div>

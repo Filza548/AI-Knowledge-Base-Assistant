@@ -120,7 +120,7 @@ export function AdminAnalytics() {
               className="flex flex-wrap items-center justify-between gap-2 text-sm"
             >
               <div className="min-w-0">
-                <p className="font-medium text-foreground">
+                <p className="truncate font-medium text-foreground">
                   {a.action}
                   {a.user_email ? ` · ${a.user_email}` : ""}
                 </p>

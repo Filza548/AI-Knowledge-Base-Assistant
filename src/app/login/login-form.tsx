@@ -187,7 +187,7 @@ export default function LoginForm({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
-          className="w-full max-w-md rounded-3xl border border-border bg-surface/90 p-8 shadow-xl shadow-primary/5 backdrop-blur"
+          className="w-full max-w-md rounded-3xl border border-border bg-surface/90 p-5 shadow-xl shadow-primary/5 backdrop-blur sm:p-8"
         >
           <div className="mb-8 space-y-3 text-center lg:text-left">
             <div className="mx-auto flex justify-center lg:hidden">

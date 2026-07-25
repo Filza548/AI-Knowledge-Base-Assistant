@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   const readyDocumentCount = count ?? 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
+    <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
       <DashboardIntro name={session?.user?.name} />
       <SearchBar />
       <div id="knowledge-chat">

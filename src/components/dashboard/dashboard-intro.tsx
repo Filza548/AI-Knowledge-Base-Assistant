@@ -43,7 +43,7 @@ export function DashboardIntro({ name }: { name?: string | null }) {
             <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
               Introduction
             </p>
-            <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="max-w-xl text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
               Welcome{greeting !== "there" ? `, ${greeting}` : ""} — this is your{" "}
               <span className="text-primary">AI Knowledge Base</span>
             </h1>

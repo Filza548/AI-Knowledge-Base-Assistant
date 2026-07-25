@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Settings,
+  X,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -49,22 +50,37 @@ const links = [
 
 export function AppSidebar({ email, role, name }: AppSidebarProps) {
   const pathname = usePathname();
-  const { open, toggle } = useSidebar();
+  const { open, setOpen, toggle, isMobile } = useSidebar();
+
+  // Mobile: off-canvas drawer. Desktop: collapsible rail in-flow.
+  const mobileHidden = isMobile && !open;
+  const showLabels = isMobile || open;
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: open ? 288 : 84 }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="sticky top-0 z-30 flex h-screen shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-fg"
+      animate={
+        isMobile
+          ? { x: open ? 0 : "-100%", width: 288 }
+          : { x: 0, width: open ? 288 : 84 }
+      }
+      transition={{ type: "spring", stiffness: 360, damping: 34 }}
+      className={cn(
+        "z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-fg",
+        isMobile
+          ? "fixed inset-y-0 left-0 shadow-2xl"
+          : "sticky top-0",
+        mobileHidden && "pointer-events-none",
+      )}
+      aria-hidden={mobileHidden}
     >
       <div
         className={cn(
           "flex items-center border-b border-white/10 py-5",
-          open ? "justify-between gap-2 px-4" : "flex-col gap-3 px-2",
+          showLabels ? "justify-between gap-2 px-4" : "flex-col gap-3 px-2",
         )}
       >
-        {open ? (
+        {showLabels ? (
           <BrandLockup size={40} inverted subtitle="Enterprise RAG workspace" />
         ) : (
           <LogoMark size={36} />
@@ -77,7 +93,9 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
           aria-label={open ? "Close sidebar" : "Open sidebar"}
           className="shrink-0 text-sidebar-fg hover:bg-white/10 hover:text-white"
         >
-          {open ? (
+          {isMobile ? (
+            <X className="h-4 w-4" />
+          ) : open ? (
             <ChevronLeft className="h-4 w-4" />
           ) : (
             <ChevronRight className="h-4 w-4" />
@@ -85,9 +103,9 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
         </Button>
       </div>
 
-      <div className={cn("px-3 pt-4", !open && "px-2")}>
+      <div className={cn("px-3 pt-4", !showLabels && "px-2")}>
         <AnimatePresence initial={false}>
-          {open ? (
+          {showLabels ? (
             <motion.div
               key="intro"
               initial={{ opacity: 0, height: 0 }}
@@ -111,7 +129,7 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-        {open ? (
+        {showLabels ? (
           <p className="mb-1 px-2 text-[10px] font-semibold tracking-[0.18em] text-sidebar-fg/40 uppercase">
             Navigate
           </p>
@@ -119,76 +137,79 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
         {links
           .filter((link) => !link.adminOnly || role === "admin")
           .map((link) => {
-          const Icon = link.icon;
-          const active = pathname.startsWith(link.href);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              title={link.label}
-              className={cn(
-                "relative flex items-center rounded-xl transition-colors",
-                open ? "gap-2.5 px-3 py-2.5" : "justify-center px-2 py-3",
-                active
-                  ? "bg-primary/20 text-white"
-                  : "text-sidebar-fg/70 hover:bg-white/5 hover:text-white",
-              )}
-            >
-              {active ? (
-                <motion.span
-                  layoutId="sidebar-active"
-                  className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-accent"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              ) : null}
-              <Icon className="h-4 w-4 shrink-0" />
-              {open ? (
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium">{link.label}</span>
-                  <span className="block truncate text-[11px] text-sidebar-fg/45">
-                    {link.hint}
+            const Icon = link.icon;
+            const active = pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                title={link.label}
+                onClick={() => {
+                  if (isMobile) setOpen(false);
+                }}
+                className={cn(
+                  "relative flex items-center rounded-xl transition-colors",
+                  showLabels ? "gap-2.5 px-3 py-2.5" : "justify-center px-2 py-3",
+                  active
+                    ? "bg-primary/20 text-white"
+                    : "text-sidebar-fg/70 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                {active ? (
+                  <motion.span
+                    layoutId="sidebar-active"
+                    className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-accent"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                ) : null}
+                <Icon className="h-4 w-4 shrink-0" />
+                {showLabels ? (
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium">{link.label}</span>
+                    <span className="block truncate text-[11px] text-sidebar-fg/45">
+                      {link.hint}
+                    </span>
                   </span>
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
+                ) : null}
+              </Link>
+            );
+          })}
       </nav>
 
       <div
         className={cn(
-          "mt-auto space-y-3 border-t border-white/10",
-          open ? "p-4" : "p-2",
+          "mt-auto space-y-3 border-t border-white/10 pb-[max(1rem,env(safe-area-inset-bottom))]",
+          showLabels ? "p-4" : "p-2",
         )}
       >
         <div
           className={cn(
             "flex items-center gap-2",
-            open ? "justify-between" : "flex-col",
+            showLabels ? "justify-between" : "flex-col",
           )}
         >
-          {open ? (
+          {showLabels ? (
             <Badge className="border-white/10 bg-white/5 capitalize text-sidebar-fg/80">
               {role ?? "assistant"}
             </Badge>
           ) : null}
           <ThemeToggle />
         </div>
-        {open ? (
+        {showLabels ? (
           <p className="truncate text-xs text-sidebar-fg/55">{email}</p>
         ) : null}
         <Button
           variant="outline"
-          size={open ? "sm" : "icon"}
+          size={showLabels ? "sm" : "icon"}
           className={cn(
             "border-white/15 bg-transparent text-sidebar-fg hover:bg-white/10 hover:text-white",
-            open && "w-full",
+            showLabels && "w-full",
           )}
           onClick={() => signOut({ callbackUrl: "/login" })}
           aria-label="Sign out"
         >
           <LogOut className="h-4 w-4" />
-          {open ? "Sign out" : null}
+          {showLabels ? "Sign out" : null}
         </Button>
       </div>
     </motion.aside>

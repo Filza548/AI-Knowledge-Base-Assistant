@@ -329,7 +329,7 @@ export function ChatPanel({
         className={`grid gap-4 ${showHistory ? "lg:grid-cols-[240px_1fr]" : ""}`}
       >
         {showHistory ? (
-          <Card className="h-[calc(100dvh-10rem)] overflow-hidden max-lg:order-2 max-lg:h-auto max-lg:max-h-56">
+          <Card className="h-[calc(100dvh-10rem)] overflow-hidden max-lg:order-2 max-lg:h-auto max-lg:max-h-48 sm:max-lg:max-h-56">
             <CardHeader className="space-y-3 border-b border-border p-4">
               <CardTitle className="text-base">Chats</CardTitle>
               <Button size="sm" className="w-full" onClick={startNewChat}>
@@ -356,7 +356,7 @@ export function ChatPanel({
                   </button>
                   <button
                     type="button"
-                    className={`shrink-0 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 ${
+                    className={`shrink-0 rounded p-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:focus-visible:opacity-100 ${
                       conversationId === c.id
                         ? "hover:bg-primary-hover"
                         : "hover:bg-border"
@@ -377,7 +377,7 @@ export function ChatPanel({
           </Card>
         ) : null}
 
-        <Card className="flex h-[calc(100dvh-10rem)] flex-col overflow-hidden max-lg:order-1 max-lg:h-[min(70dvh,36rem)]">
+        <Card className="flex h-[min(70dvh,32rem)] flex-col overflow-hidden max-lg:order-1 sm:h-[min(70dvh,36rem)] lg:h-[calc(100dvh-10rem)]">
           <CardHeader className="space-y-3 border-b border-border">
             <div>
               <CardTitle>Knowledge Chat</CardTitle>
@@ -414,7 +414,7 @@ export function ChatPanel({
               role="log"
               aria-live="polite"
               aria-relevant="additions"
-              className="flex-1 space-y-4 overflow-y-auto px-6 py-4"
+              className="flex-1 space-y-4 overflow-y-auto px-3 py-4 sm:px-6"
             >
               {messages.length === 0 ? (
                 <motion.div
@@ -429,7 +429,7 @@ export function ChatPanel({
                     </p>
                     <p className="max-w-md text-sm text-text-secondary">
                       {kbEmpty
-                        ? "No indexed documents yet. An admin needs to upload PDFs or DOCX from Admin Settings before chat can answer from your knowledge base."
+                        ? "No indexed documents yet. Upload PDFs or DOCX from Documents — once status is ready, chat can answer from your knowledge base."
                         : "Ask about policies, SOPs, or product docs — answers include citations when sources exist."}
                     </p>
                   </div>
@@ -464,12 +464,12 @@ export function ChatPanel({
                     className={`flex gap-3 ${m.role === "user" ? "justify-end" : "justify-start"}`}
                   >
                     {m.role === "assistant" ? (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white">
+                      <div className="mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white sm:flex">
                         <Bot className="h-4 w-4" />
                       </div>
                     ) : null}
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                      className={`max-w-[min(85%,28rem)] break-words rounded-2xl px-3 py-3 text-sm leading-relaxed sm:px-4 ${
                         m.role === "user"
                           ? "bg-chat-user text-foreground"
                           : "border border-border bg-chat-assistant text-foreground"
@@ -566,7 +566,7 @@ export function ChatPanel({
                       ) : null}
                     </div>
                     {m.role === "user" ? (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted">
+                      <div className="mt-1 hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted sm:flex">
                         <User className="h-4 w-4" />
                       </div>
                     ) : null}
@@ -592,8 +592,11 @@ export function ChatPanel({
               ) : null}
             </div>
 
-            <form onSubmit={onSubmit} className="border-t border-border p-4">
-              <div className="flex gap-2">
+            <form
+              onSubmit={onSubmit}
+              className="border-t border-border p-3 sm:p-4"
+            >
+              <div className="flex items-end gap-2">
                 <label htmlFor="chat-composer" className="sr-only">
                   Message
                 </label>
@@ -602,7 +605,7 @@ export function ChatPanel({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Ask the knowledge base…"
-                  className="min-h-[52px] resize-none"
+                  className="min-h-[52px] min-w-0 flex-1 resize-none"
                   maxLength={4000}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -615,7 +618,7 @@ export function ChatPanel({
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-[52px] px-4"
+                    className="h-[52px] shrink-0 px-4"
                     aria-label="Stop generating"
                     onClick={stopGenerating}
                   >
@@ -625,7 +628,7 @@ export function ChatPanel({
                   <Button
                     type="submit"
                     disabled={!query.trim()}
-                    className="h-[52px] px-4"
+                    className="h-[52px] shrink-0 px-4"
                     aria-label="Send"
                   >
                     <Send className="h-4 w-4" />

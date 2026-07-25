@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +46,11 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-lg font-semibold tracking-tight">No documents yet</p>
           <p className="max-w-md text-sm text-text-secondary">
-            Upload a PDF or DOCX from Admin Settings. After indexing finishes
-            (status: ready), you can summarize, extract metadata, and chat about
-            that file here.
+            Upload a PDF or DOCX above. After indexing finishes (status: ready),
+            you can summarize, extract metadata, and chat about that file here.
           </p>
           <Button asChild>
-            <Link href="/admin-settings">Go to Admin Settings</Link>
+            <a href="#upload">Go to upload</a>
           </Button>
         </CardContent>
       </Card>
@@ -61,11 +59,11 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-      <Card className="h-fit">
-        <CardHeader>
+      <Card className="h-fit max-lg:max-h-64">
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Documents</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
+        <CardContent className="max-h-48 space-y-2 overflow-y-auto lg:max-h-none">
           {documents.map((doc) => (
             <button
               key={doc.id}
@@ -100,9 +98,11 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
         {selected ? (
           <>
             <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
-                <div>
-                  <CardTitle>{selected.document_name}</CardTitle>
+              <CardHeader className="flex flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="break-words">
+                    {selected.document_name}
+                  </CardTitle>
                   <Badge className="mt-2">{selected.status}</Badge>
                   {selected.status !== "ready" ? (
                     <p className="mt-2 text-xs text-text-secondary">
@@ -117,6 +117,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                     size="sm"
                     disabled={loading !== null || selected.status !== "ready"}
                     onClick={() => run("summarize")}
+                    className="flex-1 sm:flex-none"
                   >
                     {loading === "summary" ? "Summarizing…" : "Summarize"}
                   </Button>
@@ -125,6 +126,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                     size="sm"
                     disabled={loading !== null || selected.status !== "ready"}
                     onClick={() => run("extract")}
+                    className="flex-1 sm:flex-none"
                   >
                     {loading === "extract" ? "Extracting…" : "Extract Metadata"}
                   </Button>

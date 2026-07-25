@@ -32,14 +32,18 @@ export function CitationCard({
           : ""
       }`}
     >
-      <p className="flex items-center gap-1.5 font-semibold">
-        <FileText className="h-3.5 w-3.5 text-primary" />
-        {citation.document_name}
+      <p className="flex min-w-0 items-center gap-1.5 font-semibold">
+        <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="min-w-0 truncate">{citation.document_name}</span>
         {citation.page != null ? (
-          <span className="font-medium text-accent"> · Page {citation.page}</span>
+          <span className="shrink-0 font-medium text-accent">
+            · Page {citation.page}
+          </span>
         ) : null}
         {interactive ? (
-          <span className="ml-auto font-normal text-text-secondary">Open</span>
+          <span className="ml-auto shrink-0 font-normal text-text-secondary">
+            Open
+          </span>
         ) : null}
       </p>
       <p className="mt-1.5 line-clamp-2 text-text-secondary">{citation.snippet}</p>

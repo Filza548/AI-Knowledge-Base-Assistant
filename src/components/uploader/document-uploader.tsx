@@ -166,7 +166,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       <div
         {...getRootProps()}
         className={cn(
-          "cursor-pointer rounded-2xl border border-dashed border-border bg-surface-muted/60 p-10 text-center transition-all",
+          "cursor-pointer rounded-2xl border border-dashed border-border bg-surface-muted/60 p-6 text-center transition-all sm:p-10",
           isDragActive &&
             "upload-pulse border-primary bg-primary/5 shadow-sm shadow-primary/10",
         )}
@@ -182,12 +182,16 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       </div>
 
       {file ? (
-        <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm shadow-sm">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-primary" />
-            <span>{file.name}</span>
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <FileText className="h-4 w-4 shrink-0 text-primary" />
+            <span className="truncate">{file.name}</span>
           </div>
-          <Button onClick={upload} disabled={busy}>
+          <Button
+            onClick={upload}
+            disabled={busy}
+            className="w-full shrink-0 sm:w-auto"
+          >
             {busy ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -163,8 +163,12 @@ export function SearchBar() {
                   })
                 }
               >
-                <p className="font-medium text-foreground">{r.citation}</p>
-                <p className="mt-1 text-text-secondary">{r.snippet}</p>
+                <p className="break-words font-medium text-foreground">
+                  {r.citation}
+                </p>
+                <p className="mt-1 line-clamp-3 break-words text-text-secondary">
+                  {r.snippet}
+                </p>
                 <p className="mt-1 text-xs text-text-secondary/80">
                   Match {(r.similarity * 100).toFixed(0)}% · Click to open source
                 </p>

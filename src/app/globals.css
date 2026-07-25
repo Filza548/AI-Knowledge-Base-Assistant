@@ -68,10 +68,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
 html {
   color-scheme: light;
+  overflow-x: hidden;
 }
 
 html.dark {
@@ -101,10 +103,19 @@ option {
   inset: auto;
   width: 42rem;
   height: 42rem;
+  max-width: 120vw;
+  max-height: 120vw;
   border-radius: 9999px;
   background: radial-gradient(circle, var(--glow), transparent 68%);
   filter: blur(8px);
   animation: breathe 8s ease-in-out infinite;
+}
+
+@media (max-width: 640px) {
+  .ambient-glow {
+    width: 22rem;
+    height: 22rem;
+  }
 }
 
 .grain {

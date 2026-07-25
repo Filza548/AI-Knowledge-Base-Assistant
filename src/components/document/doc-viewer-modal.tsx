@@ -87,7 +87,7 @@ export function DocViewerModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-stretch justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -97,11 +97,14 @@ export function DocViewerModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-xl"
+        className="flex h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border-0 border-border bg-surface shadow-xl sm:h-[90vh] sm:rounded-2xl sm:border"
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <p id={titleId} className="text-sm font-medium text-foreground">
+        <div className="flex flex-col gap-3 border-b border-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <div className="min-w-0">
+            <p
+              id={titleId}
+              className="truncate text-sm font-medium text-foreground"
+            >
               {state?.documentName ?? "Document"}
               {page != null ? ` · Page ${page}` : ""}
             </p>
@@ -111,19 +114,19 @@ export function DocViewerModal({
               </p>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {state?.url ? (
               <>
                 <Button variant="outline" size="sm" asChild>
                   <a href={state.url} target="_blank" rel="noreferrer">
                     <ExternalLink className="h-4 w-4" />
-                    Open
+                    <span className="hidden sm:inline">Open</span>
                   </a>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <a href={state.url} download={state.documentName}>
                     <Download className="h-4 w-4" />
-                    Download
+                    <span className="hidden sm:inline">Download</span>
                   </a>
                 </Button>
               </>

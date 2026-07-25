@@ -85,13 +85,13 @@ export function UserManager({ users }: { users: UserRow[] }) {
         {users.map((u) => (
           <div
             key={u.id}
-            className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-sm"
+            className="flex flex-col gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
+            <div className="min-w-0">
               <p className="font-medium text-foreground">{u.name}</p>
-              <p className="text-text-secondary">{u.email}</p>
+              <p className="truncate text-text-secondary">{u.email}</p>
             </div>
-            <Badge className="uppercase">{u.role}</Badge>
+            <Badge className="w-fit uppercase">{u.role}</Badge>
           </div>
         ))}
       </div>

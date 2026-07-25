@@ -28,7 +28,7 @@ export default async function DocumentWorkspacePage() {
         </p>
       </div>
 
-      <Card>
+      <Card id="upload">
         <CardHeader>
           <CardTitle>Upload PDF / DOCX</CardTitle>
         </CardHeader>
