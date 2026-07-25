@@ -5,6 +5,7 @@ import {
   answerWithRag,
   resolveCollectionDocumentIds,
 } from "@/lib/openai/rag";
+import { matchSmallTalk, smallTalkAnswer } from "@/lib/chat/small-talk";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { chatSchema } from "@/lib/validations";
 import { logActivity, searchLogActorFields } from "@/lib/activity";
@@ -40,9 +41,10 @@ export async function POST(req: Request) {
 
     const { query, documentId, collectionId, conversationId } = parsed.data;
     const supabase = getSupabaseAdmin();
+    const smallTalk = matchSmallTalk(query);
 
     let collectionDocumentIds: string[] | undefined;
-    if (collectionId) {
+    if (collectionId && !smallTalk) {
       collectionDocumentIds = await resolveCollectionDocumentIds(collectionId);
       if (!collectionDocumentIds.length) {
         throw new ApiError(
@@ -53,13 +55,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const scope = await resolveReadableDocumentScope(session.user, {
-      documentId,
-      collectionDocumentIds,
-    });
-
     let activeConversationId = conversationId;
-    let history: { role: "user" | "assistant"; content: string }[] = [];
 
     if (activeConversationId) {
       const { data: existing, error } = await supabase
@@ -72,20 +68,6 @@ export async function POST(req: Request) {
       if (!existing) {
         throw new ApiError(404, "Conversation not found", "not_found");
       }
-
-      const { data: prior, error: priorError } = await supabase
-        .from("messages")
-        .select("role, content")
-        .eq("conversation_id", activeConversationId)
-        .order("created_at", { ascending: true })
-        .limit(12);
-      if (priorError) throw priorError;
-      history = (prior ?? [])
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }));
     } else {
       const { data: created, error } = await supabase
         .from("conversations")
@@ -101,6 +83,73 @@ export async function POST(req: Request) {
       activeConversationId = created.id;
       createdConversationId = created.id;
     }
+
+    // Greetings / thanks / etc. — reply locally, zero OpenAI tokens
+    if (smallTalk) {
+      const result = smallTalkAnswer(smallTalk);
+
+      const { error: userMsgError } = await supabase.from("messages").insert({
+        conversation_id: activeConversationId,
+        role: "user",
+        content: query,
+      });
+      if (userMsgError) throw userMsgError;
+
+      const { error: assistantMsgError } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: activeConversationId,
+          role: "assistant",
+          content: result.answer,
+          citations: [],
+          confidence: 0,
+        });
+      if (assistantMsgError) throw assistantMsgError;
+
+      await supabase
+        .from("conversations")
+        .update({
+          updated_at: new Date().toISOString(),
+          title: titleFromQuery(query),
+        })
+        .eq("id", activeConversationId)
+        .eq("title", "New chat");
+
+      void logActivity({
+        user: session.user,
+        action: "chat_small_talk",
+        details: {
+          query: query.slice(0, 200),
+          conversation_id: activeConversationId,
+          kind: smallTalk,
+        },
+      });
+
+      return jsonOk({
+        ...result,
+        conversationId: activeConversationId,
+      });
+    }
+
+    let history: { role: "user" | "assistant"; content: string }[] = [];
+    const { data: prior, error: priorError } = await supabase
+      .from("messages")
+      .select("role, content")
+      .eq("conversation_id", activeConversationId)
+      .order("created_at", { ascending: true })
+      .limit(12);
+    if (priorError) throw priorError;
+    history = (prior ?? [])
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+
+    const scope = await resolveReadableDocumentScope(session.user, {
+      documentId,
+      collectionDocumentIds,
+    });
 
     const result = await answerWithRag(query, {
       documentId: scope.documentId,
