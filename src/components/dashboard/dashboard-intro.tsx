@@ -20,7 +20,7 @@ const features = [
   },
   {
     title: "Secure workspace",
-    body: "Role-based access for viewers and admins. Short sessions keep company knowledge protected.",
+    body: "Role-based access for assistants and admins. Short sessions keep company knowledge protected.",
     image: "/images/kb-hero.png",
     icon: ShieldCheck,
   },

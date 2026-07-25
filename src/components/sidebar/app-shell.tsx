@@ -37,7 +37,7 @@ function ShellInner({ email, role, name, children }: ShellProps) {
                 AI Knowledge Base
               </p>
               <p className="truncate text-xs text-text-secondary">
-                Secure knowledge workspace · session expires in 15 minutes
+                Secure knowledge workspace · session lasts up to 8 hours
               </p>
             </div>
           </div>

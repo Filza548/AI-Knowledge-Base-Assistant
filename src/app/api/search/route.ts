@@ -7,6 +7,9 @@ import {
 } from "@/lib/openai/rag";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { searchSchema } from "@/lib/validations";
+import { logActivity, searchLogActorFields } from "@/lib/activity";
+
+export const maxDuration = 30;
 
 export async function POST(req: Request) {
   try {
@@ -53,12 +56,22 @@ export async function POST(req: Request) {
 
     const supabase = getSupabaseAdmin();
     await supabase.from("search_logs").insert({
-      user_id: session.user.id,
+      ...searchLogActorFields(session.user),
       query_text: query.slice(0, 4000),
       documents_accessed: [...new Set(matches.map((m) => m.document_id))],
       source: "search",
       had_hits: matches.length > 0,
       avg_similarity: avgSimilarity,
+    });
+
+    void logActivity({
+      user: session.user,
+      action: "search",
+      details: {
+        query: query.slice(0, 500),
+        hit_count: matches.length,
+        document_ids: [...new Set(matches.map((m) => m.document_id))],
+      },
     });
 
     return jsonOk({

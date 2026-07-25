@@ -1,4 +1,4 @@
-export type UserRole = "viewer" | "admin";
+export type UserRole = "assistant" | "admin";
 
 export type DocumentStatus = "processing" | "ready" | "failed";
 

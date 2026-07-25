@@ -2,12 +2,15 @@ import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
 import { requireSession } from "@/lib/session";
 import { summarizeDocument } from "@/lib/openai/rag";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { logActivity } from "@/lib/activity";
+
+export const maxDuration = 60;
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {
   try {
-    await requireSession({
+    const session = await requireSession({
       rateLimitKey: "summarize",
       limit: 15,
       windowMs: 60_000,
@@ -32,6 +35,16 @@ export async function POST(_req: Request, { params }: Params) {
     }
 
     const summary = await summarizeDocument(id);
+
+    void logActivity({
+      user: session.user,
+      action: "summarize",
+      details: {
+        document_id: id,
+        document_name: doc.document_name,
+      },
+    });
+
     return jsonOk({
       document_id: id,
       document_name: doc.document_name,

@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { DocumentWorkspace } from "@/components/document/document-workspace";
+import { DocumentUploader } from "@/components/uploader/document-uploader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +23,20 @@ export default async function DocumentWorkspacePage() {
         </p>
         <h1 className="text-2xl font-bold tracking-tight">Document Workspace</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
-          Browse indexed files from the knowledge base. Summarize a policy,
-          extract structured metadata, or ask questions scoped to a single
-          document — answers still include citations when sources exist.
+          Upload files, then summarize, extract metadata, or ask questions scoped
+          to a single document — answers still include citations when sources exist.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload PDF / DOCX</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DocumentUploader />
+        </CardContent>
+      </Card>
+
       <DocumentWorkspace documents={documents ?? []} />
     </div>
   );

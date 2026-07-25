@@ -20,7 +20,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"viewer" | "admin">("viewer");
+  const [role, setRole] = useState<"assistant" | "admin">("assistant");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -39,7 +39,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
       setName("");
       setEmail("");
       setPassword("");
-      setRole("viewer");
+      setRole("assistant");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create user");
@@ -70,9 +70,9 @@ export function UserManager({ users }: { users: UserRow[] }) {
         <select
           className={selectFieldClassName}
           value={role}
-          onChange={(e) => setRole(e.target.value as "viewer" | "admin")}
+          onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
         >
-          <option value="viewer">VIEWER</option>
+          <option value="assistant">ASSISTANT</option>
           <option value="admin">ADMIN</option>
         </select>
         <Button type="submit" disabled={loading} className="md:col-span-2">

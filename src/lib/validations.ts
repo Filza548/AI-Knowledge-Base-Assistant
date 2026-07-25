@@ -15,7 +15,7 @@ export const registerUserSchema = z.object({
     .regex(/[A-Z]/, "Must include uppercase")
     .regex(/[a-z]/, "Must include lowercase")
     .regex(/[0-9]/, "Must include a number"),
-  role: z.enum(["viewer", "admin"]).default("viewer"),
+  role: z.enum(["assistant", "admin"]).default("assistant"),
 });
 
 export const chatSchema = z.object({

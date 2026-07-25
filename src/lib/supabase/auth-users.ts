@@ -38,11 +38,12 @@ export async function upsertSupabaseAuthUser(
       email,
       password: input.password,
       email_confirm: true,
-      user_metadata: {
-        name: input.name,
-        role: input.role,
-      },
-    });
+        user_metadata: {
+          name: input.name,
+          role: input.role,
+          login_method: "email",
+        },
+      });
     if (error) throw error;
     if (!data.user) throw new Error("Failed to update Supabase Auth user");
     return data.user;
@@ -56,27 +57,51 @@ export async function upsertSupabaseAuthUser(
     user_metadata: {
       name: input.name,
       role: input.role,
+      login_method: "email",
     },
   });
 
   if (!error && data.user) return data.user;
 
-  // Email may already exist under a different id — update that account instead
+  // Email may already exist under a different id — recreate with app UUID
   const existing = await findAuthUserByEmail(supabase, email);
   if (existing) {
-    const { data: updated, error: updateError } =
-      await supabase.auth.admin.updateUserById(existing.id, {
+    if (existing.id === input.id) {
+      const { data: updated, error: updateError } =
+        await supabase.auth.admin.updateUserById(existing.id, {
+          password: input.password,
+          email_confirm: true,
+          user_metadata: {
+            name: input.name,
+            role: input.role,
+            login_method: "email",
+          },
+        });
+      if (updateError) throw updateError;
+      if (!updated.user) throw new Error("Failed to update Supabase Auth user");
+      return updated.user;
+    }
+
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(
+      existing.id,
+    );
+    if (deleteError) throw deleteError;
+
+    const { data: recreated, error: recreateError } =
+      await supabase.auth.admin.createUser({
+        id: input.id,
+        email,
         password: input.password,
         email_confirm: true,
         user_metadata: {
           name: input.name,
           role: input.role,
-          app_user_id: input.id,
+          login_method: "email",
         },
       });
-    if (updateError) throw updateError;
-    if (!updated.user) throw new Error("Failed to update Supabase Auth user");
-    return updated.user;
+    if (recreateError) throw recreateError;
+    if (!recreated.user) throw new Error("Failed to recreate Supabase Auth user");
+    return recreated.user;
   }
 
   throw error ?? new Error("Failed to create Supabase Auth user");
@@ -98,6 +123,7 @@ export async function upsertSupabaseOAuthUser(
     role: input.role,
     avatar_url: input.image ?? undefined,
     provider,
+    login_method: "google",
   };
 
   const { data: existingById, error: getError } =
@@ -140,30 +166,56 @@ export async function upsertSupabaseOAuthUser(
 
   if (!error && data.user) return data.user;
 
+  // Email may already exist under a different id — recreate with app UUID
   const existing = await findAuthUserByEmail(supabase, email);
   if (existing) {
-    const { data: updated, error: updateError } =
-      await supabase.auth.admin.updateUserById(existing.id, {
+    if (existing.id === input.id) {
+      const { data: updated, error: updateError } =
+        await supabase.auth.admin.updateUserById(existing.id, {
+          email_confirm: true,
+          user_metadata: {
+            ...existing.user_metadata,
+            ...metadata,
+          },
+          app_metadata: {
+            ...existing.app_metadata,
+            provider,
+            providers: Array.from(
+              new Set([
+                ...((existing.app_metadata?.providers as string[]) ?? []),
+                provider,
+              ]),
+            ),
+          },
+        });
+      if (updateError) throw updateError;
+      if (!updated.user) {
+        throw new Error("Failed to update Supabase Auth OAuth user");
+      }
+      return updated.user;
+    }
+
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(
+      existing.id,
+    );
+    if (deleteError) throw deleteError;
+
+    const { data: recreated, error: recreateError } =
+      await supabase.auth.admin.createUser({
+        id: input.id,
+        email,
         email_confirm: true,
-        user_metadata: {
-          ...existing.user_metadata,
-          ...metadata,
-          app_user_id: input.id,
-        },
+        user_metadata: metadata,
         app_metadata: {
-          ...existing.app_metadata,
           provider,
-          providers: Array.from(
-            new Set([
-              ...((existing.app_metadata?.providers as string[]) ?? []),
-              provider,
-            ]),
-          ),
+          providers: [provider],
         },
       });
-    if (updateError) throw updateError;
-    if (!updated.user) throw new Error("Failed to update Supabase Auth OAuth user");
-    return updated.user;
+    if (recreateError) throw recreateError;
+    if (!recreated.user) {
+      throw new Error("Failed to recreate Supabase Auth OAuth user");
+    }
+    return recreated.user;
   }
 
   throw error ?? new Error("Failed to create Supabase Auth OAuth user");

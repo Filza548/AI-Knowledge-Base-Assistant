@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { decryptAtRest } from "@/lib/security/encryption";
 import { indexDocument } from "@/lib/documents/indexer";
 
+export const maxDuration = 60;
+
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {

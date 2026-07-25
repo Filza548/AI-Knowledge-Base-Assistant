@@ -169,7 +169,7 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
         >
           {open ? (
             <Badge className="border-white/10 bg-white/5 capitalize text-sidebar-fg/80">
-              {role ?? "viewer"}
+              {role ?? "assistant"}
             </Badge>
           ) : null}
           <ThemeToggle />

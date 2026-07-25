@@ -4,6 +4,9 @@ import { requireSession } from "@/lib/session";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { encryptAtRest } from "@/lib/security/encryption";
 import { indexDocument } from "@/lib/documents/indexer";
+import { logActivity } from "@/lib/activity";
+
+export const maxDuration = 60;
 
 const ALLOWED: Record<string, "pdf" | "docx"> = {
   "application/pdf": "pdf",
@@ -34,7 +37,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await requireSession({
-      roles: ["admin"],
+      roles: ["admin", "assistant"],
       rateLimitKey: "documents-upload",
       limit: 10,
       windowMs: 60_000,
@@ -102,6 +105,17 @@ export async function POST(req: Request) {
     // Client polls GET /api/documents/[id] until status is ready | failed.
     void indexDocument(documentId, buffer, fileType).catch((err) => {
       console.error("[documents] background index failed", documentId, err);
+    });
+
+    void logActivity({
+      user: session.user,
+      action: "upload",
+      details: {
+        document_id: documentId,
+        document_name: safeName,
+        file_type: fileType,
+        file_size: file.size,
+      },
     });
 
     return jsonOk({ document: doc }, 201);

@@ -53,16 +53,21 @@ async function main() {
     else pass(`table.${table}`, `rows=${count ?? 0}`);
   }
 
-  // 2) Admin user exists
+  // 2) Admin user exists (and has a password for email login)
   const { data: admin, error: adminErr } = await supabase
     .from("users")
-    .select("id, email, role")
+    .select("id, email, role, password_hash")
     .eq("email", "admin@example.com")
     .maybeSingle();
   if (adminErr) fail("users.admin_row", adminErr.message);
   else if (!admin) fail("users.admin_row", "admin@example.com not found — run npm run seed:admin");
   else if (admin.role !== "admin") fail("users.admin_row", `role=${admin.role}`);
-  else pass("users.admin_row", `${admin.email} (${admin.role})`);
+  else if (!admin.password_hash) {
+    fail(
+      "users.admin_password",
+      "password_hash is null — Google-only or unseeded; run npm run seed:admin",
+    );
+  } else pass("users.admin_row", `${admin.email} (${admin.role}, password set)`);
 
   // 3) Supabase Auth mirror
   const { data: authList, error: authErr } = await supabase.auth.admin.listUsers({

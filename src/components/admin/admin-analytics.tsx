@@ -10,6 +10,8 @@ type Analytics = {
     queries7d: number;
     unanswered7d: number;
     activeUsers7d: number;
+    adminActions7d: number;
+    assistantActions7d: number;
     chatShare: number;
   };
   topQueries: { query: string; count: number }[];
@@ -18,6 +20,15 @@ type Analytics = {
     query: string;
     timestamp: string;
     source: string | null;
+    user_role?: string | null;
+    user_email?: string | null;
+  }[];
+  recentActivity: {
+    action: string;
+    user_role: string;
+    user_email: string | null;
+    details: Record<string, unknown>;
+    created_at: string;
   }[];
 };
 
@@ -44,11 +55,16 @@ export function AdminAnalytics() {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Stat label="Queries today" value={String(stats.queriesToday)} />
         <Stat label="Queries (7d)" value={String(stats.queries7d)} />
         <Stat label="Unanswered (7d)" value={String(stats.unanswered7d)} />
         <Stat label="Active users (7d)" value={String(stats.activeUsers7d)} />
+        <Stat label="Admin actions (7d)" value={String(stats.adminActions7d ?? 0)} />
+        <Stat
+          label="Assistant actions (7d)"
+          value={String(stats.assistantActions7d ?? 0)}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -95,6 +111,34 @@ export function AdminAnalytics() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Recent activity by role</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(data.recentActivity ?? []).map((a) => (
+            <div
+              key={`${a.created_at}-${a.action}-${a.user_email}`}
+              className="flex flex-wrap items-center justify-between gap-2 text-sm"
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">
+                  {a.action}
+                  {a.user_email ? ` · ${a.user_email}` : ""}
+                </p>
+                <p className="text-xs text-text-secondary">
+                  {new Date(a.created_at).toLocaleString()}
+                </p>
+              </div>
+              <Badge className="uppercase">{a.user_role}</Badge>
+            </div>
+          ))}
+          {!(data.recentActivity ?? []).length ? (
+            <p className="text-sm text-text-secondary">No activity yet.</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Recent unanswered</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -104,6 +148,8 @@ export function AdminAnalytics() {
               <p className="text-xs text-text-secondary">
                 {new Date(r.timestamp).toLocaleString()}
                 {r.source ? ` · ${r.source}` : ""}
+                {r.user_role ? ` · ${r.user_role}` : ""}
+                {r.user_email ? ` · ${r.user_email}` : ""}
               </p>
             </div>
           ))}

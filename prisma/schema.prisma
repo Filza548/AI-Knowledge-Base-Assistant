@@ -17,7 +17,7 @@ datasource db {
 }
 
 enum user_role {
-  viewer
+  assistant
   admin
 }
 
@@ -26,7 +26,7 @@ model users {
   name          String
   email         String           @unique
   password_hash String?
-  role          user_role        @default(viewer)
+  role          user_role        @default(assistant)
   created_at    DateTime         @default(now()) @db.Timestamptz(6)
   updated_at    DateTime         @default(now()) @db.Timestamptz(6)
   documents     knowledge_base[]

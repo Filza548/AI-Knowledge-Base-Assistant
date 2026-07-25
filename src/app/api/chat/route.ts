@@ -7,6 +7,10 @@ import {
 } from "@/lib/openai/rag";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { chatSchema } from "@/lib/validations";
+import { logActivity, searchLogActorFields } from "@/lib/activity";
+
+/** Vercel serverless timeout (Pro/Fluid; Hobby max may be lower). */
+export const maxDuration = 60;
 
 function titleFromQuery(query: string) {
   const t = query.trim().replace(/\s+/g, " ");
@@ -131,7 +135,7 @@ export async function POST(req: Request) {
     void supabase
       .from("search_logs")
       .insert({
-        user_id: session.user.id,
+        ...searchLogActorFields(session.user),
         query_text: query.slice(0, 4000),
         documents_accessed: uniqueDocIds,
         source: "chat",
@@ -141,6 +145,18 @@ export async function POST(req: Request) {
       .then(({ error }) => {
         if (error) console.error("[chat] search_logs insert failed", error);
       });
+
+    void logActivity({
+      user: session.user,
+      action: "chat",
+      details: {
+        query: query.slice(0, 500),
+        conversation_id: activeConversationId,
+        citation_count: result.citations.length,
+        document_ids: uniqueDocIds,
+        confidence: result.confidence,
+      },
+    });
 
     return jsonOk({
       ...result,

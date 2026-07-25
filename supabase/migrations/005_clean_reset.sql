@@ -18,7 +18,7 @@ create extension if not exists "vector";
 
 do $do$
 begin
-  create type public.user_role as enum ('viewer', 'admin');
+  create type public.user_role as enum ('assistant', 'admin');
 exception
   when duplicate_object then null;
 end
@@ -33,19 +33,9 @@ drop table if exists public.document_chunks cascade;
 drop table if exists public.search_logs cascade;
 drop table if exists public.knowledge_base cascade;
 
--- Keep old broken users as backup (cuid/text ids), then recreate correct table
-do $do$
-begin
-  if exists (
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = 'users'
-  ) then
-    -- Avoid clobbering a previous backup
-    drop table if exists public.users_legacy_backup cascade;
-    alter table public.users rename to users_legacy_backup;
-  end if;
-end
-$do$;
+-- Drop previous users tables (rename kept index names and broke re-runs)
+drop table if exists public.users cascade;
+drop table if exists public.users_legacy_backup cascade;
 
 -- Fresh users table (UUID — required by this app)
 create table public.users (
@@ -53,13 +43,13 @@ create table public.users (
   name text not null,
   email text not null unique,
   password_hash text,
-  role public.user_role not null default 'viewer',
+  role public.user_role not null default 'assistant',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create index users_email_idx on public.users (email);
-create index users_role_idx on public.users (role);
+create index if not exists users_email_idx on public.users (email);
+create index if not exists users_role_idx on public.users (role);
 
 create table public.knowledge_base (
   id uuid primary key default gen_random_uuid(),
@@ -200,6 +190,10 @@ alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
 alter table public.collections enable row level security;
 alter table public.collection_documents enable row level security;
+
+-- Drop older 3-arg overload if present (avoids PostgREST ambiguity)
+drop function if exists public.match_document_chunks(vector, integer, uuid);
+drop function if exists public.match_document_chunks(vector, integer, uuid, uuid[]);
 
 create or replace function public.match_document_chunks(
   query_embedding vector(1536),

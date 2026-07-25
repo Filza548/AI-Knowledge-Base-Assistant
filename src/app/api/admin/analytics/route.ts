@@ -16,13 +16,20 @@ export async function GET() {
     const { data: logs, error } = await supabase
       .from("search_logs")
       .select(
-        "id, user_id, query_text, documents_accessed, source, had_hits, avg_similarity, timestamp",
+        "id, user_id, user_email, user_role, query_text, documents_accessed, source, had_hits, avg_similarity, timestamp",
       )
       .gte("timestamp", since7d)
       .order("timestamp", { ascending: false })
       .limit(2000);
 
     if (error) throw error;
+
+    const { data: activities } = await supabase
+      .from("activity_logs")
+      .select("id, user_email, user_role, action, details, created_at")
+      .gte("created_at", since7d)
+      .order("created_at", { ascending: false })
+      .limit(40);
 
     const rows = logs ?? [];
     const todayCount = rows.filter((r) => r.timestamp >= since1d).length;
@@ -31,6 +38,10 @@ export async function GET() {
     const activeUsers = new Set(
       rows.map((r) => r.user_id).filter(Boolean),
     ).size;
+    const adminActions = (activities ?? []).filter((a) => a.user_role === "admin").length;
+    const assistantActions = (activities ?? []).filter(
+      (a) => a.user_role === "assistant",
+    ).length;
 
     const queryCounts = new Map<string, number>();
     for (const r of rows) {
@@ -78,6 +89,8 @@ export async function GET() {
         queries7d: weekCount,
         unanswered7d: unanswered.length,
         activeUsers7d: activeUsers,
+        adminActions7d: adminActions,
+        assistantActions7d: assistantActions,
         chatShare:
           weekCount > 0
             ? rows.filter((r) => r.source === "chat").length / weekCount
@@ -89,6 +102,15 @@ export async function GET() {
         query: r.query_text,
         timestamp: r.timestamp,
         source: r.source,
+        user_role: r.user_role,
+        user_email: r.user_email,
+      })),
+      recentActivity: (activities ?? []).map((a) => ({
+        action: a.action,
+        user_role: a.user_role,
+        user_email: a.user_email,
+        details: a.details,
+        created_at: a.created_at,
       })),
     });
   } catch (err) {

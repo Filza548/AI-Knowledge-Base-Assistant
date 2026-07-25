@@ -60,7 +60,9 @@ export default function LoginForm({
     setLoading(false);
 
     if (result?.error) {
-      setError("Invalid email or password");
+      setError(
+        "Invalid email or password. Use admin@example.com after npm run seed:admin — Google accounts need the Google button.",
+      );
       return;
     }
 

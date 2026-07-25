@@ -8,6 +8,7 @@ import {
   upsertSupabaseAuthUser,
   upsertSupabaseOAuthUser,
 } from "@/lib/supabase/auth-users";
+import { logActivity } from "@/lib/activity";
 import type { UserRole } from "@/types";
 
 async function findUserByEmail(email: string) {
@@ -35,7 +36,7 @@ async function findAppUserByEmail(email: string) {
   return data;
 }
 
-/** Find or create an app profile for a Google sign-in. */
+/** Find or create an app profile for a Google sign-in (always assistant). */
 async function ensureGoogleAppUser(input: {
   email: string;
   name?: string | null;
@@ -44,19 +45,26 @@ async function ensureGoogleAppUser(input: {
   const email = input.email.toLowerCase().trim();
   const existing = await findAppUserByEmail(email);
   if (existing) {
-    // Ensure Google users can access Admin Settings for this workspace demo.
-    if (existing.role !== "admin") {
-      const supabase = getSupabaseAdmin();
-      const { data, error } = await supabase
-        .from("users")
-        .update({ role: "admin" })
-        .eq("id", existing.id)
-        .select("id, name, email, role")
-        .single();
-      if (error) throw error;
-      return data;
-    }
-    return existing;
+    // Password/admin accounts keep their role; Google-only stay assistants
+    if (existing.role === "assistant") return existing;
+
+    const supabase = getSupabaseAdmin();
+    const { data: withPassword } = await supabase
+      .from("users")
+      .select("password_hash")
+      .eq("id", existing.id)
+      .maybeSingle();
+
+    if (withPassword?.password_hash) return existing;
+
+    const { data, error } = await supabase
+      .from("users")
+      .update({ role: "assistant" })
+      .eq("id", existing.id)
+      .select("id, name, email, role")
+      .single();
+    if (error) throw error;
+    return data;
   }
 
   const supabase = getSupabaseAdmin();
@@ -70,7 +78,7 @@ async function ensureGoogleAppUser(input: {
     .insert({
       name,
       email,
-      role: "admin",
+      role: "assistant",
     })
     .select("id, name, email, role")
     .single();
@@ -93,38 +101,63 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = String(credentials?.email ?? "")
-          .trim()
-          .toLowerCase();
-        const password = String(credentials?.password ?? "");
-
-        if (!email || !password) return null;
-
-        const user = await findUserByEmail(email);
-        if (!user?.password_hash) return null;
-
-        const valid = await bcrypt.compare(password, user.password_hash);
-        if (!valid) return null;
-
-        // Mirror into Supabase Auth so the user appears under Authentication → Users
         try {
-          await upsertSupabaseAuthUser({
-            id: user.id,
-            email: user.email,
-            password,
-            name: user.name,
-            role: user.role,
-          });
-        } catch (err) {
-          console.error("Supabase Auth sync failed:", err);
-        }
+          const email = String(credentials?.email ?? "")
+            .trim()
+            .toLowerCase();
+          const password = String(credentials?.password ?? "");
 
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role as UserRole,
-        };
+          if (!email || !password) return null;
+
+          const user = await findUserByEmail(email);
+          // Google-only accounts have no password_hash — must use Google button
+          if (!user?.password_hash) {
+            console.warn(
+              "[auth] credentials login failed: user missing or no password",
+              email,
+            );
+            return null;
+          }
+
+          const valid = await bcrypt.compare(password, user.password_hash);
+          if (!valid) {
+            console.warn("[auth] credentials login failed: bad password", email);
+            return null;
+          }
+
+          // Mirror into Supabase Auth as admin (email/password)
+          try {
+            await upsertSupabaseAuthUser({
+              id: user.id,
+              email: user.email,
+              password,
+              name: user.name,
+              role: user.role,
+            });
+          } catch (err) {
+            console.error("Supabase Auth sync failed:", err);
+          }
+
+          void logActivity({
+            user: {
+              id: user.id,
+              email: user.email,
+              role: user.role,
+            },
+            action: "login_credentials",
+            details: { login_method: "email" },
+          });
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role as UserRole,
+          };
+        } catch (err) {
+          console.error("[auth] credentials authorize error:", err);
+          return null;
+        }
       },
     }),
     ...(googleConfigured
@@ -193,6 +226,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         } catch (err) {
           console.error("Supabase Auth Google sync failed:", err);
         }
+
+        void logActivity({
+          user: {
+            id: appUser.id,
+            email: appUser.email,
+            role: appUser.role,
+          },
+          action: "login_google",
+          details: { login_method: "google", provider: "google" },
+        });
 
         return true;
       } catch (err) {

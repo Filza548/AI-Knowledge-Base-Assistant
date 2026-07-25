@@ -45,15 +45,26 @@ async function main() {
 
   if (error) throw error;
 
-  // Promote every app user to admin so Google SSO accounts see Admin Settings
+  // Promote every *password* user to admin; leave Google assistants alone
   const { error: promoteError } = await supabase
     .from("users")
     .update({ role: "admin" })
+    .not("password_hash", "is", null)
     .neq("role", "admin");
   if (promoteError) {
-    console.warn("Could not promote users to admin:", promoteError.message);
+    console.warn("Could not promote password users to admin:", promoteError.message);
   } else {
-    console.log("All users promoted to admin (re-login to refresh session)");
+    console.log("Password users promoted to admin (re-login to refresh session)");
+  }
+
+  // Ensure Google-only rows stay assistants
+  const { error: demoteError } = await supabase
+    .from("users")
+    .update({ role: "assistant" })
+    .is("password_hash", null)
+    .neq("role", "assistant");
+  if (demoteError) {
+    console.warn("Could not set Google users to assistant:", demoteError.message);
   }
 
   await upsertSupabaseAuthUser(

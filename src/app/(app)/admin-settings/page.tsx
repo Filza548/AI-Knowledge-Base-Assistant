@@ -66,7 +66,7 @@ export default async function AdminSettingsPage() {
         <h1 className="text-2xl font-bold tracking-tight">Admin Settings</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
           Keep the knowledge base healthy: upload and reindex PDFs/DOCX, organize
-          collections, provision viewers and admins, and review usage analytics.
+          collections, provision assistants and admins, and review usage analytics.
         </p>
       </div>
 
