@@ -25,15 +25,13 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { selectFieldClassName } from "@/lib/field-styles";
 import { apiFetch } from "@/lib/client-api";
 import { toast } from "sonner";
-import type { Citation, ConfidenceLevel, ConversationSummary } from "@/types";
+import type { Citation, ConversationSummary } from "@/types";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
   citations?: Citation[];
-  confidence?: number | null;
-  confidenceLevel?: ConfidenceLevel;
   followUps?: string[];
 };
 
@@ -48,27 +46,6 @@ function newId() {
     return crypto.randomUUID();
   }
   return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function levelFromScore(score?: number | null): ConfidenceLevel {
-  if (score == null || score <= 0) return "none";
-  if (score >= 0.72) return "high";
-  if (score >= 0.5) return "medium";
-  return "low";
-}
-
-function confidenceLabel(level: ConfidenceLevel) {
-  if (level === "high") return "High confidence";
-  if (level === "medium") return "Medium confidence";
-  if (level === "low") return "Low confidence";
-  return "No sources";
-}
-
-function confidenceClass(level: ConfidenceLevel) {
-  if (level === "high") return "border-accent/30 bg-accent/15 text-accent";
-  if (level === "medium") return "border-primary/30 bg-primary/10 text-primary";
-  if (level === "low") return "border-warning/30 bg-warning/10 text-warning";
-  return "";
 }
 
 function exportMarkdown(content: string, citations?: Citation[]) {
@@ -217,10 +194,11 @@ export function ChatPanel({
             role: "user" | "assistant";
             content: string;
             citations?: Citation[];
-            confidence?: number | null;
           }) => ({
-            ...m,
-            confidenceLevel: levelFromScore(m.confidence),
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            citations: m.citations,
           }),
         ),
       );
@@ -313,9 +291,6 @@ export function ChatPanel({
           role: "assistant",
           content: json.answer,
           citations: json.citations ?? [],
-          confidence: json.confidence,
-          confidenceLevel:
-            json.confidenceLevel ?? levelFromScore(json.confidence),
           followUps: json.followUps ?? [],
         },
       ]);
@@ -509,16 +484,6 @@ export function ChatPanel({
                           animate={{ opacity: 1 }}
                           className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3"
                         >
-                          <Badge
-                            className={confidenceClass(
-                              m.confidenceLevel ?? "none",
-                            )}
-                          >
-                            {confidenceLabel(m.confidenceLevel ?? "none")}
-                            {m.confidence != null && m.confidence > 0
-                              ? ` · ${(m.confidence * 100).toFixed(0)}%`
-                              : ""}
-                          </Badge>
                           <Button
                             type="button"
                             size="sm"
