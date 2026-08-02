@@ -8,3 +8,8 @@ export async function parseJsonBody(req: Request): Promise<unknown> {
     throw new ApiError(400, "Invalid JSON body", "invalid_json");
   }
 }
+
+/** The app's active UI locale, as tagged by client-api.ts's apiFetch on every request. */
+export function getRequestLocale(req: Request): "en" | "ar" {
+  return req.headers.get("X-App-Locale") === "ar" ? "ar" : "en";
+}

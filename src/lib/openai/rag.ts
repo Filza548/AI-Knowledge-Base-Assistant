@@ -8,6 +8,8 @@ import type {
   RagAnswer,
 } from "@/types";
 
+export type Locale = "en" | "ar";
+
 export type RetrieveOptions = {
   documentId?: string;
   documentIds?: string[];
@@ -24,6 +26,8 @@ export type AnswerOptions = RetrieveOptions & {
   history?: ChatHistoryTurn[];
   /** Second LLM call — keep off the critical path unless explicitly requested. */
   includeFollowUps?: boolean;
+  /** UI language — the model is instructed to answer in this language regardless of source document language. */
+  locale?: Locale;
 };
 
 /** Cosine distance cutoff. distance = 1 - similarity. */
@@ -32,18 +36,28 @@ const MAX_RELEVANT_DISTANCE = 0.72; // keep chunks with similarity >= ~0.28
 const MIN_FALLBACK_SIMILARITY = 0.18;
 const DEFAULT_MATCH_COUNT = 10;
 
-const SYSTEM_PROMPT = `You are an internal knowledge assistant embedded in a company dashboard.
+const NOT_FOUND_ANSWER: Record<Locale, string> = {
+  en: "I couldn't find this information in the knowledge base.",
+  ar: "لم أتمكن من العثور على هذه المعلومة في قاعدة المعرفة.",
+};
 
+const RESPONSE_LANGUAGE_LINE: Record<Locale, string> = {
+  en: "Always respond in English, regardless of the language of the source documents.",
+  ar: "أجب دائمًا باللغة العربية الفصحى الحديثة، بغض النظر عن لغة المستندات المصدر.",
+};
+
+function systemPrompt(locale: Locale): string {
+  return `You are an internal knowledge assistant embedded in a company dashboard.
+
+- ${RESPONSE_LANGUAGE_LINE[locale]}
 - If the user's message is a greeting, thanks, or casual small talk (e.g. "hi", "hello", "thank you"), reply briefly and warmly in your own words. Do not mention documents, context, or citations for these.
 - For substantive questions, answer using ONLY the context excerpts provided below.
 - Synthesize a clear, helpful answer from related excerpts — paraphrase is fine. Combine multiple excerpts when needed.
 - Prefer answering when the context is even partially related to the question. Do not refuse just because the wording differs.
-- Every claim in a substantive answer must cite its source inline in the format (Source: <document name>, Page <page number>). If a chunk has no page number, cite just (Source: <document name>).
-- Only if the context is empty or clearly unrelated, respond exactly: "I couldn't find this information in the knowledge base."
+- Every claim in a substantive answer must cite its source inline in the format (Source: <document name>, Page <page number>). If a chunk has no page number, cite just (Source: <document name>). Keep document names as-is — do not translate them.
+- Only if the context is empty or clearly unrelated, respond exactly: "${NOT_FOUND_ANSWER[locale]}"
 - Never invent facts that are not supported by the context.`;
-
-const NOT_FOUND_ANSWER =
-  "I couldn't find this information in the knowledge base.";
+}
 
 function confidenceLevel(score: number): ConfidenceLevel {
   if (score <= 0) return "none";
@@ -150,9 +164,10 @@ async function generateFollowUps(
   query: string,
   answer: string,
   citations: Citation[],
+  locale: Locale,
 ): Promise<string[]> {
   if (!citations.length) return [];
-  if (answer === NOT_FOUND_ANSWER) return [];
+  if (answer === NOT_FOUND_ANSWER[locale]) return [];
 
   try {
     const openai = getOpenAI();
@@ -163,8 +178,7 @@ async function generateFollowUps(
       messages: [
         {
           role: "system",
-          content:
-            'Suggest exactly 3 short follow-up questions the user might ask next, grounded in the answer and sources. Return JSON only: {"followUps":["..."]}',
+          content: `Suggest exactly 3 short follow-up questions the user might ask next, grounded in the answer and sources. ${RESPONSE_LANGUAGE_LINE[locale]} Return JSON only: {"followUps":["..."]}`,
         },
         {
           role: "user",
@@ -196,6 +210,7 @@ export async function answerWithRag(
     typeof options === "string" || options == null
       ? { documentId: options }
       : options;
+  const locale: Locale = opts.locale ?? "en";
 
   const matches = await retrieveChunks(query, opts);
   const citations = buildCitations(matches);
@@ -224,7 +239,7 @@ export async function answerWithRag(
     model: env.OPENAI_CHAT_MODEL,
     temperature: 0.35,
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt(locale) },
       ...history,
       {
         role: "user",
@@ -234,15 +249,16 @@ export async function answerWithRag(
   });
 
   const answer =
-    completion.choices[0]?.message?.content?.trim() || NOT_FOUND_ANSWER;
+    completion.choices[0]?.message?.content?.trim() || NOT_FOUND_ANSWER[locale];
 
   const isNotFound =
-    answer === NOT_FOUND_ANSWER ||
+    answer === NOT_FOUND_ANSWER.en ||
+    answer === NOT_FOUND_ANSWER.ar ||
     answer.toLowerCase().includes("couldn't find this information");
   const finalCitations = isNotFound ? [] : citations;
   const finalConfidence = isNotFound ? 0 : confidence;
   const followUps = opts.includeFollowUps
-    ? await generateFollowUps(query, answer, finalCitations)
+    ? await generateFollowUps(query, answer, finalCitations, locale)
     : [];
 
   return {
@@ -254,7 +270,25 @@ export async function answerWithRag(
   };
 }
 
-export async function summarizeDocument(documentId: string): Promise<string> {
+const NO_CONTENT_YET: Record<Locale, string> = {
+  en: "No indexed content available for this document yet.",
+  ar: "لا يوجد محتوى مفهرس لهذا المستند بعد.",
+};
+
+const NO_SUMMARY: Record<Locale, string> = {
+  en: "No summary.",
+  ar: "لا يوجد ملخص.",
+};
+
+const NO_EXTRACTION: Record<Locale, string> = {
+  en: "No extraction.",
+  ar: "لا يوجد استخراج.",
+};
+
+export async function summarizeDocument(
+  documentId: string,
+  locale: Locale = "en",
+): Promise<string> {
   const supabase = getSupabaseAdmin();
   const { data: chunks, error } = await supabase
     .from("document_chunks")
@@ -265,7 +299,7 @@ export async function summarizeDocument(documentId: string): Promise<string> {
 
   if (error) throw error;
   if (!chunks?.length) {
-    return "No indexed content available for this document yet.";
+    return NO_CONTENT_YET[locale];
   }
 
   const text = chunks.map((c) => c.content).join("\n\n").slice(0, 24000);
@@ -278,18 +312,18 @@ export async function summarizeDocument(documentId: string): Promise<string> {
     messages: [
       {
         role: "system",
-        content:
-          "Summarize the document in concise bullet points. Stay faithful to the source.",
+        content: `Summarize the document in concise bullet points. Stay faithful to the source. ${RESPONSE_LANGUAGE_LINE[locale]}`,
       },
       { role: "user", content: text },
     ],
   });
 
-  return completion.choices[0]?.message?.content?.trim() || "No summary.";
+  return completion.choices[0]?.message?.content?.trim() || NO_SUMMARY[locale];
 }
 
 export async function extractDocumentInfo(
   documentId: string,
+  locale: Locale = "en",
 ): Promise<string> {
   const supabase = getSupabaseAdmin();
   const { data: chunks, error } = await supabase
@@ -301,7 +335,7 @@ export async function extractDocumentInfo(
 
   if (error) throw error;
   if (!chunks?.length) {
-    return "No indexed content available for this document yet.";
+    return NO_CONTENT_YET[locale];
   }
 
   const text = chunks.map((c) => c.content).join("\n\n").slice(0, 24000);
@@ -314,12 +348,11 @@ export async function extractDocumentInfo(
     messages: [
       {
         role: "system",
-        content:
-          "Extract structured metadata from the document using these fields when possible: Effective Date, Department, Responsibilities, Version, Review Date, Active Clauses. Use bullet points. If unknown, write N/A.",
+        content: `Extract structured metadata from the document using these fields when possible: Effective Date, Department, Responsibilities, Version, Review Date, Active Clauses. Use bullet points. If unknown, write N/A. ${RESPONSE_LANGUAGE_LINE[locale]}`,
       },
       { role: "user", content: text },
     ],
   });
 
-  return completion.choices[0]?.message?.content?.trim() || "No extraction.";
+  return completion.choices[0]?.message?.content?.trim() || NO_EXTRACTION[locale];
 }

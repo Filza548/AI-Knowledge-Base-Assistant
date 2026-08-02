@@ -31,12 +31,12 @@ export function LogoMark({ size = 40, className, animated = false }: LogoMarkPro
         fill="white"
         fillOpacity="0.72"
       />
-      <path d="M24 12v24" stroke="#0B1F2A" strokeOpacity="0.18" strokeWidth="1.5" />
-      <circle cx="33.5" cy="16.5" r="3.2" fill="#F59E0B" />
-      <circle cx="38.2" cy="21.8" r="1.7" fill="#FBBF24" />
+      <path d="M24 12v24" stroke="#050709" strokeOpacity="0.18" strokeWidth="1.5" />
+      <circle cx="33.5" cy="16.5" r="3.2" fill="#d4af37" />
+      <circle cx="38.2" cy="21.8" r="1.7" fill="#00e5ff" />
       <path
         d="M33.5 16.5L38.2 21.8"
-        stroke="#F59E0B"
+        stroke="#d4af37"
         strokeWidth="1.4"
         strokeLinecap="round"
       />

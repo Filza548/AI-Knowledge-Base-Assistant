@@ -3,12 +3,13 @@ import { requireSession } from "@/lib/session";
 import { summarizeDocument } from "@/lib/openai/rag";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { logActivity } from "@/lib/activity";
+import { getRequestLocale } from "@/lib/http";
 
 export const maxDuration = 60;
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function POST(_req: Request, { params }: Params) {
+export async function POST(req: Request, { params }: Params) {
   try {
     const session = await requireSession({
       rateLimitKey: "summarize",
@@ -34,7 +35,7 @@ export async function POST(_req: Request, { params }: Params) {
       throw new ApiError(409, "Document is not ready for summarization", "not_ready");
     }
 
-    const summary = await summarizeDocument(id);
+    const summary = await summarizeDocument(id, getRequestLocale(req));
 
     void logActivity({
       user: session.user,

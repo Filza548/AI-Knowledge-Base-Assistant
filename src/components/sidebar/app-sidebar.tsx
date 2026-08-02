@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookOpen,
@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BrandLockup, LogoMark } from "@/components/brand/logo-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { Badge } from "@/components/ui/badge";
 import { useSidebar } from "@/components/sidebar/sidebar-context";
 
@@ -26,49 +27,52 @@ type AppSidebarProps = {
   name?: string | null;
 };
 
-const links = [
-  {
-    href: "/dashboard",
-    label: "Dashboard",
-    hint: "Search · chat · citations",
-    icon: LayoutDashboard,
-  },
-  {
-    href: "/document-workspace",
-    label: "Documents",
-    hint: "Summarize · extract · ask",
-    icon: BookOpen,
-  },
-  {
-    href: "/admin-settings",
-    label: "Admin Settings",
-    hint: "Upload · users · analytics",
-    icon: Settings,
-    adminOnly: true,
-  },
-];
-
 export function AppSidebar({ email, role, name }: AppSidebarProps) {
+  const t = useTranslations("Nav");
+  const locale = useLocale();
   const pathname = usePathname();
   const { open, setOpen, toggle, isMobile } = useSidebar();
+
+  const links = [
+    {
+      href: "/dashboard",
+      label: t("dashboardLabel"),
+      hint: t("dashboardHint"),
+      icon: LayoutDashboard,
+    },
+    {
+      href: "/document-workspace",
+      label: t("documentsLabel"),
+      hint: t("documentsHint"),
+      icon: BookOpen,
+    },
+    {
+      href: "/admin-settings",
+      label: t("adminLabel"),
+      hint: t("adminHint"),
+      icon: Settings,
+      adminOnly: true,
+    },
+  ];
 
   // Mobile: off-canvas drawer. Desktop: collapsible rail in-flow.
   const mobileHidden = isMobile && !open;
   const showLabels = isMobile || open;
+  const isRtl = locale === "ar";
 
   return (
     <motion.aside
       initial={false}
       animate={
         isMobile
-          ? { x: open ? 0 : "-100%", width: 288 }
+          ? { x: open ? 0 : isRtl ? "100%" : "-100%", width: 288 }
           : { x: 0, width: open ? 288 : 84 }
       }
       transition={{ type: "spring", stiffness: 360, damping: 34 }}
       className={cn(
-        "z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-white/10 bg-sidebar text-sidebar-fg",
+        "z-50 flex h-dvh shrink-0 flex-col overflow-hidden border-e border-white/10 bg-sidebar text-sidebar-fg",
         isMobile
-          ? "fixed inset-y-0 left-0 shadow-2xl"
+          ? "fixed inset-y-0 start-0 shadow-2xl"
           : "sticky top-0",
         mobileHidden && "pointer-events-none",
       )}
@@ -81,7 +85,7 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
         )}
       >
         {showLabels ? (
-          <BrandLockup size={40} inverted subtitle="Enterprise RAG workspace" />
+          <BrandLockup size={40} inverted subtitle={t("sidebarSubtitle")} />
         ) : (
           <LogoMark size={36} />
         )}
@@ -90,12 +94,14 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={toggle}
-          aria-label={open ? "Close sidebar" : "Open sidebar"}
+          aria-label={open ? t("closeSidebar") : t("openSidebar")}
           className="shrink-0 text-sidebar-fg hover:bg-white/10 hover:text-white"
         >
           {isMobile ? (
             <X className="h-4 w-4" />
           ) : open ? (
+            isRtl ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />
+          ) : isRtl ? (
             <ChevronLeft className="h-4 w-4" />
           ) : (
             <ChevronRight className="h-4 w-4" />
@@ -114,14 +120,13 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
               className="mb-3 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3"
             >
               <p className="text-[11px] font-semibold tracking-[0.16em] text-accent uppercase">
-                Workspace
+                {t("workspace")}
               </p>
               <p className="mt-1 text-sm font-semibold text-white">
-                {name ? `Hi, ${name.split(" ")[0]}` : "Knowledge hub"}
+                {name ? t("greeting", { name: name.split(" ")[0] }) : t("greetingFallback")}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-sidebar-fg/60">
-                Search indexed PDFs, get cited answers, and manage collections
-                from one place.
+                {t("sidebarDescription")}
               </p>
             </motion.div>
           ) : null}
@@ -131,7 +136,7 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {showLabels ? (
           <p className="mb-1 px-2 text-[10px] font-semibold tracking-[0.18em] text-sidebar-fg/40 uppercase">
-            Navigate
+            {t("navigate")}
           </p>
         ) : null}
         {links
@@ -158,7 +163,7 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
                 {active ? (
                   <motion.span
                     layoutId="sidebar-active"
-                    className="absolute top-1.5 bottom-1.5 left-0 w-1 rounded-full bg-accent"
+                    className="absolute top-1.5 bottom-1.5 start-0 w-1 rounded-full bg-accent"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 ) : null}
@@ -190,10 +195,13 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
         >
           {showLabels ? (
             <Badge className="border-white/10 bg-white/5 capitalize text-sidebar-fg/80">
-              {role ?? "assistant"}
+              {role ?? t("roleFallback")}
             </Badge>
           ) : null}
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <LanguageToggle className="text-sidebar-fg hover:bg-white/10 hover:text-white" />
+            <ThemeToggle />
+          </div>
         </div>
         {showLabels ? (
           <p className="truncate text-xs text-sidebar-fg/55">{email}</p>
@@ -205,11 +213,13 @@ export function AppSidebar({ email, role, name }: AppSidebarProps) {
             "border-white/15 bg-transparent text-sidebar-fg hover:bg-white/10 hover:text-white",
             showLabels && "w-full",
           )}
-          onClick={() => signOut({ callbackUrl: "/login" })}
-          aria-label="Sign out"
+          onClick={() =>
+            signOut({ callbackUrl: locale === "en" ? "/login" : `/${locale}/login` })
+          }
+          aria-label={t("signOut")}
         >
           <LogOut className="h-4 w-4" />
-          {showLabels ? "Sign out" : null}
+          {showLabels ? t("signOut") : null}
         </Button>
       </div>
     </motion.aside>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -33,6 +34,7 @@ type Analytics = {
 };
 
 export function AdminAnalytics() {
+  const t = useTranslations("AdminAnalytics");
   const [data, setData] = useState<Analytics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,29 +42,29 @@ export function AdminAnalytics() {
     fetch("/api/admin/analytics")
       .then(async (res) => {
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error ?? "Failed to load analytics");
+        if (!res.ok) throw new Error(json?.error ?? t("loadFailed"));
         setData(json);
       })
       .catch((err) =>
-        setError(err instanceof Error ? err.message : "Failed to load analytics"),
+        setError(err instanceof Error ? err.message : t("loadFailed")),
       );
-  }, []);
+  }, [t]);
 
   if (error) return <p className="text-sm text-danger">{error}</p>;
-  if (!data) return <p className="text-sm text-text-secondary">Loading analytics…</p>;
+  if (!data) return <p className="text-sm text-text-secondary">{t("loading")}</p>;
 
   const { stats } = data;
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <Stat label="Queries today" value={String(stats.queriesToday)} />
-        <Stat label="Queries (7d)" value={String(stats.queries7d)} />
-        <Stat label="Unanswered (7d)" value={String(stats.unanswered7d)} />
-        <Stat label="Active users (7d)" value={String(stats.activeUsers7d)} />
-        <Stat label="Admin actions (7d)" value={String(stats.adminActions7d ?? 0)} />
+        <Stat label={t("queriesToday")} value={String(stats.queriesToday)} />
+        <Stat label={t("queries7d")} value={String(stats.queries7d)} />
+        <Stat label={t("unanswered7d")} value={String(stats.unanswered7d)} />
+        <Stat label={t("activeUsers7d")} value={String(stats.activeUsers7d)} />
+        <Stat label={t("adminActions7d")} value={String(stats.adminActions7d ?? 0)} />
         <Stat
-          label="Assistant actions (7d)"
+          label={t("assistantActions7d")}
           value={String(stats.assistantActions7d ?? 0)}
         />
       </div>
@@ -70,7 +72,7 @@ export function AdminAnalytics() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top queries</CardTitle>
+            <CardTitle className="text-base">{t("topQueries")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {data.topQueries.map((q) => (
@@ -83,14 +85,14 @@ export function AdminAnalytics() {
               </div>
             ))}
             {!data.topQueries.length ? (
-              <p className="text-sm text-text-secondary">No queries yet.</p>
+              <p className="text-sm text-text-secondary">{t("noQueries")}</p>
             ) : null}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Most cited documents</CardTitle>
+            <CardTitle className="text-base">{t("topDocuments")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {data.topDocuments.map((d) => (
@@ -103,7 +105,7 @@ export function AdminAnalytics() {
               </div>
             ))}
             {!data.topDocuments.length ? (
-              <p className="text-sm text-text-secondary">No citations yet.</p>
+              <p className="text-sm text-text-secondary">{t("noCitations")}</p>
             ) : null}
           </CardContent>
         </Card>
@@ -111,7 +113,7 @@ export function AdminAnalytics() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent activity by role</CardTitle>
+          <CardTitle className="text-base">{t("recentActivity")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {(data.recentActivity ?? []).map((a) => (
@@ -132,14 +134,14 @@ export function AdminAnalytics() {
             </div>
           ))}
           {!(data.recentActivity ?? []).length ? (
-            <p className="text-sm text-text-secondary">No activity yet.</p>
+            <p className="text-sm text-text-secondary">{t("noActivity")}</p>
           ) : null}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent unanswered</CardTitle>
+          <CardTitle className="text-base">{t("recentUnanswered")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {data.recentUnanswered.map((r, i) => (
@@ -155,7 +157,7 @@ export function AdminAnalytics() {
           ))}
           {!data.recentUnanswered.length ? (
             <p className="text-sm text-text-secondary">
-              No unanswered queries in the last 7 days.
+              {t("noUnanswered")}
             </p>
           ) : null}
         </CardContent>

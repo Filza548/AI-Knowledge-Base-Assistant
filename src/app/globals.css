@@ -1,44 +1,61 @@
 @import "tailwindcss";
 
+/*
+ * AURA Dual-Theme (v2.0) — dark is the primary aesthetic, light is the
+ * companion mode. Semantic tokens below (--background, --primary, --border…)
+ * are derived from the six core AURA tokens so every existing component
+ * that already consumes them re-skins automatically. The core AURA tokens
+ * are also exposed directly (--color-deep-black, --color-gold, …) for
+ * components that want to match the spec's literal utility classes
+ * (bg-aura-blue, text-gold, border-platinum/10, …).
+ */
 :root {
-  --background: #f4f7f9;
-  --foreground: #0b1f2a;
-  --surface: #ffffff;
-  --surface-muted: #e8eef2;
-  --text-secondary: #4a6070;
-  --border: #d5dee5;
-  --primary: #0f766e;
-  --primary-hover: #0d9488;
-  --accent: #f59e0b;
-  --success: #059669;
-  --warning: #d97706;
-  --danger: #dc2626;
-  --chat-user: #ccfbf1;
-  --chat-assistant: #ffffff;
-  --sidebar: #0b1f2a;
-  --sidebar-fg: #e6eef2;
-  --glow: rgba(15, 118, 110, 0.28);
+  /* Core AURA tokens — dark (default) */
+  --deep-black: #050709;
+  --dark-steel: #0a0d14;
+  --platinum: #e6e6e6;
+  --gold: #d4af37;
+  --aura-blue: #00e5ff;
+  --electric-blue: #0066ff;
+
+  /* Semantic aliases */
+  --background: var(--deep-black);
+  --foreground: var(--platinum);
+  --surface: var(--dark-steel);
+  --surface-muted: color-mix(in oklab, var(--platinum) 6%, var(--background));
+  --text-secondary: color-mix(in oklab, var(--platinum) 62%, var(--background));
+  --border: color-mix(in oklab, var(--platinum) 12%, var(--background));
+  --primary: var(--aura-blue);
+  --primary-hover: var(--platinum);
+  --accent: var(--gold);
+  --success: #34d399;
+  --warning: var(--gold);
+  --danger: #f87171;
+  --chat-user: color-mix(in oklab, var(--aura-blue) 16%, var(--surface));
+  --chat-assistant: var(--surface);
+  /* Sidebar is a fixed dark brand rail in both themes, per original design intent */
+  --sidebar: #050709;
+  --sidebar-fg: #e6e6e6;
+  --glow: rgba(0, 102, 255, 0.22);
   --radius: 14px;
+
+  color-scheme: dark;
 }
 
-.dark {
-  --background: #07131a;
-  --foreground: #e6eef2;
-  --surface: #0f1e27;
-  --surface-muted: #152734;
-  --text-secondary: #9bb0bd;
-  --border: #1e3340;
-  --primary: #2dd4bf;
-  --primary-hover: #5eead4;
-  --accent: #fbbf24;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
-  --chat-user: #134e4a;
-  --chat-assistant: #0f1e27;
-  --sidebar: #040b10;
-  --sidebar-fg: #e6eef2;
-  --glow: rgba(45, 212, 191, 0.22);
+:root[data-theme="light"],
+html.light {
+  /* Core AURA tokens — light (companion) */
+  --deep-black: #f7f4ec;
+  --dark-steel: #ffffff;
+  --platinum: #101722;
+  --gold: #b88918;
+  --aura-blue: #007d9c;
+  --electric-blue: #004fd6;
+
+  --success: #059669;
+  --danger: #dc2626;
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -58,6 +75,12 @@
   --color-chat-assistant: var(--chat-assistant);
   --color-sidebar: var(--sidebar);
   --color-sidebar-fg: var(--sidebar-fg);
+  --color-deep-black: var(--deep-black);
+  --color-dark-steel: var(--dark-steel);
+  --color-platinum: var(--platinum);
+  --color-gold: var(--gold);
+  --color-aura-blue: var(--aura-blue);
+  --color-electric-blue: var(--electric-blue);
   --font-sans: var(--font-display);
   --font-display: var(--font-display);
   --font-mono: var(--font-geist-mono);
@@ -72,12 +95,12 @@ body {
 }
 
 html {
-  color-scheme: light;
+  --font-display: var(--font-display-latin);
   overflow-x: hidden;
 }
 
-html.dark {
-  color-scheme: dark;
+html[dir="rtl"] {
+  --font-display: var(--font-display-arabic);
 }
 
 /* Native form controls follow theme surfaces */

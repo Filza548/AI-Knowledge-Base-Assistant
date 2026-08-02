@@ -1,33 +1,35 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, FileSearch, MessageSquareQuote, ShieldCheck } from "lucide-react";
 
-const features = [
-  {
-    title: "Cited answers",
-    body: "Every substantive reply points back to a document and page — so you can trust what you read.",
-    image: "/images/kb-chat.png",
-    icon: MessageSquareQuote,
-  },
-  {
-    title: "Search your docs",
-    body: "Ask about policies, SOPs, and product PDFs. The knowledge base retrieves the closest chunks first.",
-    image: "/images/kb-docs.png",
-    icon: FileSearch,
-  },
-  {
-    title: "Secure workspace",
-    body: "Role-based access for assistants and admins. Short sessions keep company knowledge protected.",
-    image: "/images/kb-hero.png",
-    icon: ShieldCheck,
-  },
-];
-
 export function DashboardIntro({ name }: { name?: string | null }) {
-  const greeting = name?.split(" ")[0] || "there";
+  const t = useTranslations("Dashboard");
+  const firstName = name?.split(" ")[0];
+
+  const features = [
+    {
+      title: t("feature1Title"),
+      body: t("feature1Body"),
+      image: "/images/kb-chat.png",
+      icon: MessageSquareQuote,
+    },
+    {
+      title: t("feature2Title"),
+      body: t("feature2Body"),
+      image: "/images/kb-docs.png",
+      icon: FileSearch,
+    },
+    {
+      title: t("feature3Title"),
+      body: t("feature3Body"),
+      image: "/images/kb-hero.png",
+      icon: ShieldCheck,
+    },
+  ];
 
   return (
     <section className="space-y-6">
@@ -41,48 +43,47 @@ export function DashboardIntro({ name }: { name?: string | null }) {
         <div className="grid items-center gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="relative z-10 space-y-4 p-6 sm:p-8 lg:pr-2">
             <p className="text-xs font-semibold tracking-[0.18em] text-primary uppercase">
-              Introduction
+              {t("introduction")}
             </p>
             <h1 className="max-w-xl text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-              Welcome{greeting !== "there" ? `, ${greeting}` : ""} — this is your{" "}
-              <span className="text-primary">AI Knowledge Base</span>
+              {firstName ? t("welcomeWithName", { name: firstName }) : t("welcome")} —{" "}
+              {t("welcomeSuffix")} <span className="text-primary">{t("brandName")}</span>
             </h1>
             <p className="max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">
-              Upload company PDFs and DOCX files, then ask natural questions.
-              The assistant answers only from your indexed documents and shows
-              <strong className="font-semibold text-foreground"> sources </strong>
-              so teammates can verify every claim.
+              {t("body")}
+              <strong className="font-semibold text-foreground"> {t("sourcesHighlight")} </strong>
+              {t("bodySuffix")}
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                RAG chat
+                {t("tagRag")}
               </span>
               <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent">
-                Page citations
+                {t("tagCitations")}
               </span>
               <span className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-text-secondary">
-                Collections · history
+                {t("tagCollections")}
               </span>
             </div>
             <div className="flex flex-wrap gap-3 pt-2">
               <a
                 href="#knowledge-chat"
-                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-primary/25 transition hover:-translate-y-0.5 hover:bg-primary-hover"
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-background shadow-sm shadow-primary/25 transition hover:-translate-y-0.5 hover:bg-primary-hover"
               >
-                Start asking
-                <ArrowRight className="h-4 w-4" />
+                {t("startAsking")}
+                <ArrowRight className="h-4 w-4 rtl:-scale-x-100" />
               </a>
               <Link
                 href="/document-workspace"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-surface-muted"
               >
-                Open documents
+                {t("openDocuments")}
               </Link>
               <Link
                 href="/admin-settings"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-primary/40 hover:bg-surface-muted"
               >
-                Admin Settings
+                {t("adminSettings")}
               </Link>
             </div>
           </div>
@@ -101,11 +102,8 @@ export function DashboardIntro({ name }: { name?: string | null }) {
       </motion.div>
 
       <div>
-        <h2 className="text-lg font-bold tracking-tight">How this workspace helps</h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          Three things this product is built for — discover, verify, and manage
-          company knowledge.
-        </p>
+        <h2 className="text-lg font-bold tracking-tight">{t("howItHelpsTitle")}</h2>
+        <p className="mt-1 text-sm text-text-secondary">{t("howItHelpsBody")}</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -145,11 +143,8 @@ export function DashboardIntro({ name }: { name?: string | null }) {
       </div>
 
       <div className="space-y-1 pt-2">
-        <h2 className="text-lg font-bold tracking-tight">Ask the knowledge base</h2>
-        <p className="text-sm text-text-secondary">
-          Use the chat below for grounded Q&amp;A. Pick a collection if you want
-          to limit the search scope.
-        </p>
+        <h2 className="text-lg font-bold tracking-tight">{t("askTitle")}</h2>
+        <p className="text-sm text-text-secondary">{t("askBody")}</p>
       </div>
     </section>
   );

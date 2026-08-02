@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useDropzone, type FileRejection } from "react-dropzone";
 import { UploadCloud, FileText, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/client-api";
@@ -16,6 +17,7 @@ function sleep(ms: number) {
 }
 
 export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
+  const t = useTranslations("Uploader");
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
@@ -28,11 +30,11 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       if (rejections.length) {
         const reason = rejections[0]?.errors[0];
         if (reason?.code === "file-too-large") {
-          setError("File is too large (max 20MB)");
+          setError(t("fileTooLarge"));
         } else if (reason?.code === "file-invalid-type") {
-          setError("Only PDF and DOCX files are allowed");
+          setError(t("invalidType"));
         } else {
-          setError(reason?.message ?? "File rejected");
+          setError(reason?.message ?? t("fileRejected"));
         }
         setFile(null);
         setStage("failed");
@@ -47,7 +49,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       setStage("idle");
       setLastFailedId(null);
     },
-    [],
+    [t],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -67,45 +69,44 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       await sleep(2000);
       const res = await apiFetch(`/api/documents/${documentId}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Could not check index status");
+      if (!res.ok) throw new Error(json?.error ?? t("couldNotCheckStatus"));
       const status = json.document?.status as string | undefined;
       if (status === "ready") return json.document;
       if (status === "failed") {
         const err = new Error(
-          json.document?.error_message ?? "Indexing failed",
+          json.document?.error_message ?? t("indexingFailed"),
         ) as Error & { documentId?: string };
         // Old Vercel pdf-parse failures — tell user to retry after fix deploy
         if (/pdf-parse|DOMMatrix/i.test(err.message)) {
-          err.message =
-            "PDF indexing failed on the old server build. Click Retry reindex (or upload again).";
+          err.message = t("pdfOldEngineMessage");
         }
         err.documentId = documentId;
         throw err;
       }
     }
-    throw new Error("Indexing is taking too long — refresh Admin to check status");
+    throw new Error(t("indexingTooLong"));
   }
 
   async function upload() {
     if (!file) return;
     setStage("uploading");
     setError(null);
-    setMessage("Uploading file…");
+    setMessage(t("uploadingFile"));
     setLastFailedId(null);
     const body = new FormData();
     body.append("file", file);
     try {
       const res = await apiFetch("/api/documents", { method: "POST", body });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Upload failed");
+      if (!res.ok) throw new Error(json?.error ?? t("uploadFailed"));
 
       const doc = json.document;
-      if (!doc?.id) throw new Error("Upload succeeded but no document was returned");
+      if (!doc?.id) throw new Error(t("uploadSucceededNoDoc"));
 
       if (doc.status === "failed") {
         setStage("failed");
         setLastFailedId(doc.id);
-        const msg = doc.error_message ?? "Indexing failed";
+        const msg = doc.error_message ?? t("indexingFailed");
         setError(msg);
         setMessage(null);
         toast.error(msg);
@@ -115,16 +116,16 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       if (doc.status === "processing" || doc.status === "ready") {
         if (doc.status === "processing") {
           setStage("indexing");
-          setMessage("Indexing & embedding in the background…");
-          toast.message("Indexing document…");
+          setMessage(t("indexingInBackground"));
+          toast.message(t("indexingInBackground"));
           const ready = await pollUntilSettled(doc.id);
           setStage("done");
-          setMessage(`Ready: ${ready.document_name}`);
-          toast.success(`Ready: ${ready.document_name}`);
+          setMessage(t("ready", { name: ready.document_name }));
+          toast.success(t("ready", { name: ready.document_name }));
         } else {
           setStage("done");
-          setMessage(`Ready: ${doc.document_name}`);
-          toast.success(`Ready: ${doc.document_name}`);
+          setMessage(t("ready", { name: doc.document_name }));
+          toast.success(t("ready", { name: doc.document_name }));
         }
         setFile(null);
         onUploaded?.();
@@ -133,8 +134,8 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
       }
 
       setStage("done");
-      setMessage(`Uploaded: ${doc.document_name}`);
-      toast.success(`Uploaded: ${doc.document_name}`);
+      setMessage(t("uploaded", { name: doc.document_name }));
+      toast.success(t("uploaded", { name: doc.document_name }));
       setFile(null);
       onUploaded?.();
       router.refresh();
@@ -145,7 +146,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
           ? String((err as { documentId?: string }).documentId)
           : null;
       if (failedId) setLastFailedId(failedId);
-      const message = err instanceof Error ? err.message : "Upload failed";
+      const message = err instanceof Error ? err.message : t("uploadFailed");
       setError(message);
       setMessage(null);
       toast.error(message);
@@ -156,21 +157,21 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
     if (!lastFailedId) return;
     setStage("indexing");
     setError(null);
-    setMessage("Re-indexing…");
+    setMessage(t("reindexing"));
     try {
       const res = await apiFetch(`/api/documents/${lastFailedId}/reindex`, {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Reindex failed");
+      if (!res.ok) throw new Error(json?.error ?? t("reindexFailed"));
       setStage("done");
-      setMessage("Reindex complete");
+      setMessage(t("reindexComplete"));
       setLastFailedId(null);
-      toast.success("Reindex complete");
+      toast.success(t("reindexComplete"));
       router.refresh();
     } catch (err) {
       setStage("failed");
-      const message = err instanceof Error ? err.message : "Reindex failed";
+      const message = err instanceof Error ? err.message : t("reindexFailed");
       setError(message);
       toast.error(message);
     }
@@ -188,14 +189,12 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
             "upload-pulse border-primary bg-primary/5 shadow-sm shadow-primary/10",
         )}
       >
-        <input {...getInputProps()} aria-label="Upload PDF or DOCX" />
+        <input {...getInputProps()} aria-label={t("ariaUpload")} />
         <UploadCloud className="mx-auto mb-3 h-8 w-8 text-primary" />
         <p className="text-sm font-semibold">
-          {isDragActive
-            ? "Drop file here"
-            : "Drop PDFs or DOCX — we’ll index them for search and chat"}
+          {isDragActive ? t("dropHere") : t("dropInstructions")}
         </p>
-        <p className="mt-1 text-xs text-text-secondary">Max 20MB · PDF / DOCX</p>
+        <p className="mt-1 text-xs text-text-secondary">{t("maxSizeHint")}</p>
       </div>
 
       {file ? (
@@ -212,10 +211,10 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
             {busy ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {stage === "uploading" ? "Uploading…" : "Indexing…"}
+                {stage === "uploading" ? t("uploading") : t("indexing")}
               </>
             ) : (
-              "Upload & embed"
+              t("uploadAndEmbed")
             )}
           </Button>
         </div>
@@ -232,8 +231,8 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
           </div>
           <p className="text-xs text-text-secondary">
             {stage === "uploading"
-              ? "Uploading to storage…"
-              : "Embedding chunks — you can leave this page open"}
+              ? t("uploadingToStorage")
+              : t("embeddingChunks")}
           </p>
         </div>
       ) : null}
@@ -248,7 +247,7 @@ export function DocumentUploader({ onUploaded }: { onUploaded?: () => void }) {
               onClick={retryReindex}
               disabled={busy}
             >
-              Retry reindex
+              {t("retryReindex")}
             </Button>
           ) : null}
         </div>

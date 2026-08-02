@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/client-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +17,7 @@ type Doc = {
 };
 
 export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
+  const t = useTranslations("DocumentWorkspace");
   const [selected, setSelected] = useState<Doc | null>(documents[0] ?? null);
   const [summary, setSummary] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<string | null>(null);
@@ -26,15 +29,15 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
     setLoading(action === "summarize" ? "summary" : "extract");
     setError(null);
     try {
-      const res = await fetch(`/api/documents/${selected.id}/${action}`, {
+      const res = await apiFetch(`/api/documents/${selected.id}/${action}`, {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Request failed");
+      if (!res.ok) throw new Error(json?.error ?? t("requestFailed"));
       if (action === "summarize") setSummary(json.summary);
       else setMetadata(json.extraction);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Request failed");
+      setError(err instanceof Error ? err.message : t("requestFailed"));
     } finally {
       setLoading(null);
     }
@@ -44,13 +47,12 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
-          <p className="text-lg font-semibold tracking-tight">No documents yet</p>
+          <p className="text-lg font-semibold tracking-tight">{t("noDocumentsTitle")}</p>
           <p className="max-w-md text-sm text-text-secondary">
-            Upload a PDF or DOCX above. After indexing finishes (status: ready),
-            you can summarize, extract metadata, and chat about that file here.
+            {t("noDocumentsBody")}
           </p>
           <Button asChild>
-            <a href="#upload">Go to upload</a>
+            <a href="#upload">{t("goToUpload")}</a>
           </Button>
         </CardContent>
       </Card>
@@ -61,7 +63,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
     <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
       <Card className="h-fit max-lg:max-h-64">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Documents</CardTitle>
+          <CardTitle className="text-base">{t("documentsHeading")}</CardTitle>
         </CardHeader>
         <CardContent className="max-h-48 space-y-2 overflow-y-auto lg:max-h-none">
           {documents.map((doc) => (
@@ -73,7 +75,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                 setSummary(null);
                 setMetadata(null);
               }}
-              className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
+              className={`w-full rounded-xl border px-3 py-2 text-start text-sm transition-colors ${
                 selected?.id === doc.id
                   ? "border-primary bg-primary text-white"
                   : "border-border bg-surface text-foreground hover:bg-surface-muted"
@@ -106,8 +108,9 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                   <Badge className="mt-2">{selected.status}</Badge>
                   {selected.status !== "ready" ? (
                     <p className="mt-2 text-xs text-text-secondary">
-                      Wait until status is <strong>ready</strong> before
-                      summarize / extract / chat.
+                      {t.rich("readyNotice", {
+                        strong: (chunks) => <strong>{chunks}</strong>,
+                      })}
                     </p>
                   ) : null}
                 </div>
@@ -119,7 +122,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                     onClick={() => run("summarize")}
                     className="flex-1 sm:flex-none"
                   >
-                    {loading === "summary" ? "Summarizing…" : "Summarize"}
+                    {loading === "summary" ? t("summarizing") : t("summarize")}
                   </Button>
                   <Button
                     variant="outline"
@@ -128,26 +131,25 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
                     onClick={() => run("extract")}
                     className="flex-1 sm:flex-none"
                   >
-                    {loading === "extract" ? "Extracting…" : "Extract Metadata"}
+                    {loading === "extract" ? t("extracting") : t("extractMetadata")}
                   </Button>
                 </div>
               </CardHeader>
               <CardContent className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
                   <p className="mb-2 text-sm font-medium text-foreground">
-                    Summary
+                    {t("summaryHeading")}
                   </p>
                   <p className="whitespace-pre-wrap text-sm text-text-secondary">
-                    {summary ?? "Click Summarize to generate bullet points."}
+                    {summary ?? t("summaryPlaceholder")}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-surface-muted/60 p-4">
                   <p className="mb-2 text-sm font-medium text-foreground">
-                    Metadata
+                    {t("metadataHeading")}
                   </p>
                   <p className="whitespace-pre-wrap text-sm text-text-secondary">
-                    {metadata ??
-                      "Click Extract Metadata for structured fields."}
+                    {metadata ?? t("metadataPlaceholder")}
                   </p>
                 </div>
                 {error ? (
@@ -169,7 +171,7 @@ export function DocumentWorkspace({ documents }: { documents: Doc[] }) {
         ) : (
           <Card>
             <CardContent className="py-12 text-center text-sm text-text-secondary">
-              Select a document to get started.
+              {t("selectDocumentPrompt")}
             </CardContent>
           </Card>
         )}

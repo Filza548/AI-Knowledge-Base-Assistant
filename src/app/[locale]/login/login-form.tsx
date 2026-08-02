@@ -4,10 +4,12 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LogoMark } from "@/components/brand/logo-mark";
+import { LanguageToggle } from "@/components/language-toggle";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -32,6 +34,7 @@ export default function LoginForm({
 }: {
   googleEnabled?: boolean;
 }) {
+  const t = useTranslations("Login");
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
@@ -39,9 +42,7 @@ export default function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(
-    searchParams.get("error")
-      ? "Google sign-in failed. Please try again or use email."
-      : null,
+    searchParams.get("error") ? t("googleError") : null,
   );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -60,9 +61,7 @@ export default function LoginForm({
     setLoading(false);
 
     if (result?.error) {
-      setError(
-        "Invalid email or password. Use admin@example.com after npm run seed:admin — Google accounts need the Google button.",
-      );
+      setError(t("credentialsError"));
       return;
     }
 
@@ -74,6 +73,10 @@ export default function LoginForm({
     <main className="relative flex min-h-screen overflow-hidden bg-background">
       <div className="ambient-glow -top-24 -left-24" />
       <div className="ambient-glow right-[-10%] bottom-[-20%] opacity-60" />
+
+      <div className="absolute top-4 end-4 z-20">
+        <LanguageToggle />
+      </div>
 
       <section className="relative z-10 hidden w-[52%] flex-col overflow-hidden border-r border-border lg:flex">
         <div className="absolute inset-0">
@@ -100,9 +103,7 @@ export default function LoginForm({
               <p className="text-lg font-bold tracking-tight">
                 <span className="text-primary">AI</span> Knowledge Base
               </p>
-              <p className="text-sm text-text-secondary">
-                Ask your documents. Get answers with sources.
-              </p>
+              <p className="text-sm text-text-secondary">{t("brandTagline")}</p>
             </div>
           </motion.div>
 
@@ -114,7 +115,7 @@ export default function LoginForm({
               animate="show"
               className="text-xs font-semibold tracking-[0.18em] text-primary uppercase"
             >
-              Product introduction
+              {t("productIntro")}
             </motion.p>
             <motion.h1
               custom={1}
@@ -123,8 +124,8 @@ export default function LoginForm({
               animate="show"
               className="text-4xl font-extrabold leading-tight tracking-tight text-foreground xl:text-[2.75rem]"
             >
-              Your company knowledge,{" "}
-              <span className="text-primary">one question away.</span>
+              {t("headingBefore")}{" "}
+              <span className="text-primary">{t("headingAccent")}</span>
             </motion.h1>
             <motion.p
               custom={2}
@@ -133,9 +134,7 @@ export default function LoginForm({
               animate="show"
               className="text-base leading-relaxed text-text-secondary"
             >
-              AI Knowledge Base is an enterprise RAG assistant: upload PDFs and
-              DOCX, index them safely, then chat with grounded answers that show
-              document name and page citations.
+              {t("body")}
             </motion.p>
             <motion.ul
               custom={3}
@@ -146,15 +145,15 @@ export default function LoginForm({
             >
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                Dashboard chat with conversation history and collections
+                {t("bullet1")}
               </li>
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                Document workspace for summarize, extract, and scoped ask
+                {t("bullet2")}
               </li>
               <li className="flex gap-2">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                Admin upload, reindex, users, and usage analytics
+                {t("bullet3")}
               </li>
             </motion.ul>
             <motion.p
@@ -164,7 +163,7 @@ export default function LoginForm({
               animate="show"
               className="text-xs font-medium tracking-wide text-text-secondary/80 uppercase"
             >
-              Secure · role-based · source-backed
+              {t("secureTagline")}
             </motion.p>
           </div>
 
@@ -176,7 +175,7 @@ export default function LoginForm({
               <Image src="/images/kb-docs.png" alt="" fill className="object-cover" />
             </div>
             <p className="self-center text-xs text-text-secondary/80">
-              Enterprise RAG workspace
+              {t("enterpriseWorkspace")}
             </p>
           </div>
         </div>
@@ -194,11 +193,9 @@ export default function LoginForm({
               <LogoMark size={44} animated />
             </div>
             <h2 className="text-2xl font-bold tracking-tight">
-              Sign in to continue
+              {t("signInHeading")}
             </h2>
-            <p className="text-sm text-text-secondary">
-              Access your knowledge workspace — chat, documents, and admin tools.
-            </p>
+            <p className="text-sm text-text-secondary">{t("signInSubheading")}</p>
           </div>
 
           <div className="space-y-4">
@@ -215,14 +212,14 @@ export default function LoginForm({
                 }}
               >
                 <GoogleGlyph />
-                {googleLoading ? "Redirecting to Google…" : "Continue with Google"}
+                {googleLoading ? t("redirectingGoogle") : t("continueWithGoogle")}
               </Button>
             ) : null}
 
             {googleEnabled ? (
               <div className="relative text-center text-xs text-text-secondary">
-                <span className="relative z-10 bg-surface px-2">or email</span>
-                <div className="absolute inset-x-0 top-1/2 -z-0 h-px bg-border" />
+                <span className="relative z-10 bg-surface px-2">{t("orEmail")}</span>
+                <div className="absolute inset-x-0 top-1/2 z-0 h-px bg-border" />
               </div>
             ) : null}
 
@@ -232,7 +229,7 @@ export default function LoginForm({
                   type="email"
                   required
                   autoComplete="email"
-                  placeholder="Email"
+                  placeholder={t("emailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
@@ -243,7 +240,7 @@ export default function LoginForm({
                   required
                   minLength={8}
                   autoComplete="current-password"
-                  placeholder="Password"
+                  placeholder={t("passwordPlaceholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -255,7 +252,7 @@ export default function LoginForm({
               ) : null}
               <motion.div custom={3} variants={fadeUp} initial="hidden" animate="show">
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing in…" : "Sign in"}
+                  {loading ? t("signingIn") : t("signIn")}
                 </Button>
               </motion.div>
             </form>

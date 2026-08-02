@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function useConfirm(): ConfirmFn {
 }
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("ConfirmDialog");
   const [pending, setPending] = useState<PendingConfirm | null>(null);
   const titleId = useId();
   const descId = useId();
@@ -133,7 +135,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   onClick={() => close(false)}
                   className="sm:min-w-[6.5rem]"
                 >
-                  {pending.cancelLabel ?? "Cancel"}
+                  {pending.cancelLabel ?? t("cancel")}
                 </Button>
                 <Button
                   ref={confirmRef}
@@ -142,7 +144,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
                   onClick={() => close(true)}
                   className="sm:min-w-[6.5rem]"
                 >
-                  {pending.confirmLabel ?? "Confirm"}
+                  {pending.confirmLabel ?? t("confirm")}
                 </Button>
               </div>
             </motion.div>

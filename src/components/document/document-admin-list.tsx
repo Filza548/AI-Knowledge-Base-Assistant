@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ type Doc = {
 };
 
 export function DocumentAdminList({ documents }: { documents: Doc[] }) {
+  const t = useTranslations("DocumentAdminList");
   const router = useRouter();
   const confirm = useConfirm();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -25,10 +27,9 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
 
   async function remove(id: string) {
     const ok = await confirm({
-      title: "Delete this document?",
-      description:
-        "This removes the file, embeddings, and related chunks. This cannot be undone.",
-      confirmLabel: "Delete",
+      title: t("deleteTitle"),
+      description: t("deleteDescription"),
+      confirmLabel: t("delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -37,11 +38,11 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
     try {
       const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Delete failed");
-      toast.success("Document deleted");
+      if (!res.ok) throw new Error(json?.error ?? t("deleteFailed"));
+      toast.success(t("documentDeleted"));
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Delete failed";
+      const message = err instanceof Error ? err.message : t("deleteFailed");
       setError(message);
       toast.error(message);
     } finally {
@@ -55,11 +56,11 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
     try {
       const res = await fetch(`/api/documents/${id}/reindex`, { method: "POST" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Reindex failed");
-      toast.success("Reindex complete");
+      if (!res.ok) throw new Error(json?.error ?? t("reindexFailed"));
+      toast.success(t("reindexComplete"));
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Reindex failed";
+      const message = err instanceof Error ? err.message : t("reindexFailed");
       setError(message);
       toast.error(message);
     } finally {
@@ -86,7 +87,7 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
             {doc.status === "failed" && doc.error_message ? (
               <p className="mt-1 break-words text-xs text-danger">
                 {/pdf-parse|DOMMatrix/i.test(doc.error_message)
-                  ? "Old PDF engine failed — click Reindex to process with the new fix."
+                  ? t("oldPdfEngineFailed")
                   : doc.error_message}
               </p>
             ) : null}
@@ -101,7 +102,7 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
                 className="flex-1 sm:flex-none"
               >
                 <RefreshCw className="h-4 w-4" />
-                <span className="sm:inline">Reindex</span>
+                <span className="sm:inline">{t("reindex")}</span>
               </Button>
             )}
             <Button
@@ -112,13 +113,13 @@ export function DocumentAdminList({ documents }: { documents: Doc[] }) {
               className="flex-1 sm:flex-none"
             >
               <Trash2 className="h-4 w-4" />
-              <span className="sm:inline">Delete</span>
+              <span className="sm:inline">{t("delete")}</span>
             </Button>
           </div>
         </div>
       ))}
       {!documents.length ? (
-        <p className="text-sm text-text-secondary">No documents uploaded yet.</p>
+        <p className="text-sm text-text-secondary">{t("noDocuments")}</p>
       ) : null}
     </div>
   );

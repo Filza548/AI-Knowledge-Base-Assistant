@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ type UserRow = {
 };
 
 export function UserManager({ users }: { users: UserRow[] }) {
+  const t = useTranslations("UserManager");
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -35,14 +37,14 @@ export function UserManager({ users }: { users: UserRow[] }) {
         body: JSON.stringify({ name, email, password, role }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to create user");
+      if (!res.ok) throw new Error(json?.error ?? t("createFailed"));
       setName("");
       setEmail("");
       setPassword("");
       setRole("assistant");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create user");
+      setError(err instanceof Error ? err.message : t("createFailed"));
     } finally {
       setLoading(false);
     }
@@ -51,17 +53,17 @@ export function UserManager({ users }: { users: UserRow[] }) {
   return (
     <div className="space-y-6">
       <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
-        <Input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input placeholder={t("namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} required />
         <Input
           type="email"
-          placeholder="Email"
+          placeholder={t("emailPlaceholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
         <Input
           type="password"
-          placeholder="Password (min 10, mixed case + number)"
+          placeholder={t("passwordPlaceholder")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
@@ -72,11 +74,11 @@ export function UserManager({ users }: { users: UserRow[] }) {
           value={role}
           onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
         >
-          <option value="assistant">ASSISTANT</option>
-          <option value="admin">ADMIN</option>
+          <option value="assistant">{t("roleAssistant")}</option>
+          <option value="admin">{t("roleAdmin")}</option>
         </select>
         <Button type="submit" disabled={loading} className="md:col-span-2">
-          {loading ? "Creating…" : "Create user"}
+          {loading ? t("creating") : t("createUser")}
         </Button>
       </form>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
