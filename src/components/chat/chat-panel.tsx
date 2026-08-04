@@ -26,7 +26,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { selectFieldClassName } from "@/lib/field-styles";
 import { apiFetch } from "@/lib/client-api";
 import { toast } from "sonner";
-import type { Citation, ConversationSummary } from "@/types";
+import type { Citation, ConfidenceLevel, ConversationSummary } from "@/types";
 
 type Message = {
   id: string;
@@ -34,6 +34,8 @@ type Message = {
   content: string;
   citations?: Citation[];
   followUps?: string[];
+  confidence?: number;
+  confidenceLevel?: ConfidenceLevel;
 };
 
 type CollectionOption = {

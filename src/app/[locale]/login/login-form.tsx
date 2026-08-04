@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -27,17 +27,6 @@ function safeCallbackUrl(raw: string | null): string {
     return "/dashboard";
   }
   return raw;
-}
-
-function authErrorMessage(code: string | null): string | null {
-  if (!code) return null;
-  if (code === "AccessDenied" || code === "OAuthAccountNotLinked") {
-    return "Google sign-in is only for invited or approved users. Request access via Sign up, or ask an admin for an invite.";
-  }
-  if (code === "Configuration") {
-    return "Sign-in is misconfigured. Contact your admin.";
-  }
-  return "Sign-in failed. Try again or use email and password.";
 }
 
 export default function LoginForm({
@@ -102,13 +91,12 @@ export default function LoginForm({
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/85 to-background/40" />
         </div>
 
-        <div className="mb-5 flex rounded-xl border border-border bg-background/60 p-1 text-sm">
-          <span className="flex-1 rounded-lg bg-primary px-3 py-2 text-center font-medium text-primary-foreground">
-            Sign in
-          </span>
-          <Link
-            href="/signup"
-            className="flex-1 rounded-lg px-3 py-2 text-center text-text-secondary transition hover:text-foreground"
+        <div className="relative z-10 flex h-full flex-col justify-between px-12 py-12">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 220, damping: 20 }}
+            className="flex items-center gap-3"
           >
             <LogoMark size={48} animated />
             <div>
@@ -191,6 +179,7 @@ export default function LoginForm({
             </p>
           </div>
         </div>
+      </section>
 
       <section className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
         <motion.div

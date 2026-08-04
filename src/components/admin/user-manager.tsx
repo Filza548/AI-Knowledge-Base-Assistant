@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,21 +18,6 @@ type UserRow = {
   created_at: string;
   requested_at?: string | null;
 };
-
-function statusLabel(status?: string) {
-  switch (status) {
-    case "pending":
-      return "Pending approval";
-    case "invited":
-      return "Invited";
-    case "rejected":
-      return "Rejected";
-    case "active":
-      return "Active";
-    default:
-      return status ?? "Unknown";
-  }
-}
 
 export function UserManager({ users }: { users: UserRow[] }) {
   const t = useTranslations("UserManager");
@@ -53,6 +39,21 @@ export function UserManager({ users }: { users: UserRow[] }) {
     [users],
   );
 
+  function statusLabel(status?: string) {
+    switch (status) {
+      case "pending":
+        return t("statusPending");
+      case "invited":
+        return t("statusInvited");
+      case "rejected":
+        return t("statusRejected");
+      case "active":
+        return t("statusActive");
+      default:
+        return status ?? t("statusUnknown");
+    }
+  }
+
   async function onInvite(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -65,19 +66,19 @@ export function UserManager({ users }: { users: UserRow[] }) {
         body: JSON.stringify({ name, email, role }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? t("createFailed"));
+      if (!res.ok) throw new Error(json?.error ?? t("inviteFailed"));
       setName("");
       setEmail("");
       setRole("assistant");
       if (json.inviteUrl) setInviteUrl(json.inviteUrl);
       if (json.emailSent) {
-        toast.success("Invite email sent");
+        toast.success(t("inviteEmailSent"));
       } else {
-        toast.message("Invite created — copy the link (email not configured)");
+        toast.message(t("inviteCreatedNoEmail"));
       }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("createFailed"));
+      setError(err instanceof Error ? err.message : t("inviteFailed"));
     } finally {
       setLoading(false);
     }
@@ -90,11 +91,11 @@ export function UserManager({ users }: { users: UserRow[] }) {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Approve failed");
-      toast.success("User approved");
+      if (!res.ok) throw new Error(json?.error ?? t("approveFailed"));
+      toast.success(t("userApproved"));
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Approve failed");
+      toast.error(err instanceof Error ? err.message : t("approveFailed"));
     } finally {
       setActionId(null);
     }
@@ -107,51 +108,117 @@ export function UserManager({ users }: { users: UserRow[] }) {
         method: "POST",
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Reject failed");
-      toast.message("Request rejected");
+      if (!res.ok) throw new Error(json?.error ?? t("rejectFailed"));
+      toast.message(t("requestRejected"));
       router.refresh();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Reject failed");
+      toast.error(err instanceof Error ? err.message : t("rejectFailed"));
     } finally {
       setActionId(null);
     }
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
-        <Input placeholder={t("namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} required />
-        <Input
-          type="email"
-          placeholder={t("emailPlaceholder")}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <Input
-          type="password"
-          placeholder={t("passwordPlaceholder")}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={10}
-        />
-        <select
-          className={selectFieldClassName}
-          value={role}
-          onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
-        >
-          <option value="assistant">{t("roleAssistant")}</option>
-          <option value="admin">{t("roleAdmin")}</option>
-        </select>
-        <Button type="submit" disabled={loading} className="md:col-span-2">
-          {loading ? t("creating") : t("createUser")}
-        </Button>
-      </form>
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+    <div className="space-y-8">
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">
+            {t("inviteTitle")}
+          </h3>
+          <p className="text-xs text-text-secondary">{t("inviteBlurb")}</p>
+        </div>
+        <form onSubmit={onInvite} className="grid gap-3 md:grid-cols-2">
+          <Input
+            placeholder={t("namePlaceholder")}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <Input
+            type="email"
+            placeholder={t("emailPlaceholder")}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <select
+            className={selectFieldClassName}
+            value={role}
+            onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
+          >
+            <option value="assistant">{t("roleAssistant")}</option>
+            <option value="admin">{t("roleAdmin")}</option>
+          </select>
+          <Button type="submit" disabled={loading}>
+            {loading ? t("sendingInvite") : t("sendInvite")}
+          </Button>
+        </form>
+        {error ? <p className="text-sm text-danger">{error}</p> : null}
+        {inviteUrl ? (
+          <div className="rounded-xl border border-border bg-background/70 p-3 text-xs break-all">
+            <p className="mb-1 font-medium text-foreground">{t("inviteLink")}</p>
+            <p className="text-text-secondary">{inviteUrl}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2"
+              onClick={async () => {
+                await navigator.clipboard.writeText(inviteUrl);
+                toast.success(t("inviteLinkCopied"));
+              }}
+            >
+              {t("copyLink")}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
+      {pending.length ? (
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("pendingTitle")}
+            </h3>
+            <p className="text-xs text-text-secondary">{t("pendingBlurb")}</p>
+          </div>
+          <div className="space-y-2">
+            {pending.map((u) => (
+              <div
+                key={u.id}
+                className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground">{u.name}</p>
+                  <p className="truncate text-text-secondary">{u.email}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="w-fit uppercase">{t("pending")}</Badge>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={actionId === u.id}
+                    onClick={() => void approve(u.id)}
+                  >
+                    {t("approve")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={actionId === u.id}
+                    onClick={() => void reject(u.id)}
+                  >
+                    {t("reject")}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-foreground">All users</h3>
+        <h3 className="text-sm font-semibold text-foreground">{t("allUsers")}</h3>
         {others.map((u) => (
           <div
             key={u.id}
@@ -172,7 +239,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
                   disabled={actionId === u.id}
                   onClick={() => void reject(u.id)}
                 >
-                  Cancel invite
+                  {t("cancelInvite")}
                 </Button>
               ) : null}
               {u.status === "rejected" ? (
@@ -182,7 +249,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
                   disabled={actionId === u.id}
                   onClick={() => void approve(u.id)}
                 >
-                  Approve
+                  {t("approve")}
                 </Button>
               ) : null}
             </div>
