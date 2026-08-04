@@ -16,12 +16,22 @@ function bareAndPrefix(pathname: string) {
   return { bare, prefix: `/${match[1]}` };
 }
 
+function isPublicApi(pathname: string) {
+  return (
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/register") ||
+    pathname.startsWith("/api/invite")
+  );
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const user = req.auth?.user;
-  const isAuthed = Boolean(user?.id);
 
   if (pathname.startsWith("/api/")) {
+    if (isPublicApi(pathname)) {
+      return applySecurityHeaders(NextResponse.next());
+    }
     if (!req.auth) {
       const res = NextResponse.json(
         { error: "Unauthorized", code: "unauthorized" },
@@ -33,14 +43,15 @@ export default auth((req) => {
   }
 
   const { bare, prefix } = bareAndPrefix(pathname);
+  const isPublicPage = bare === "/login" || bare === "/signup";
 
-  if (!req.auth && bare !== "/login") {
+  if (!req.auth && !isPublicPage) {
     const url = new URL(`${prefix}/login`, req.nextUrl.origin);
     url.searchParams.set("callbackUrl", pathname);
     return applySecurityHeaders(NextResponse.redirect(url));
   }
 
-  if (bare.startsWith("/admin-settings") && req.auth?.user?.role !== "admin") {
+  if (bare.startsWith("/admin-settings") && user?.role !== "admin") {
     return applySecurityHeaders(
       NextResponse.redirect(new URL(`${prefix}/dashboard`, req.nextUrl.origin)),
     );
@@ -50,7 +61,7 @@ export default auth((req) => {
 });
 
 // Exclude Auth.js routes so the auth() wrapper cannot 404 them.
-// /login stays covered so next-intl can still resolve its locale.
+// /login and /signup stay covered so next-intl can still resolve their locale.
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|api/auth|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",

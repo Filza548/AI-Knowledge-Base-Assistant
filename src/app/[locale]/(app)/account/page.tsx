@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
+import { getLocale } from "next-intl/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { AccountSettingsForm } from "@/components/account/account-settings-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,8 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 
 export default async function AccountPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const [session, locale] = await Promise.all([auth(), getLocale()]);
+  if (!session?.user?.id) {
+    redirect({ href: "/login", locale });
+    return null;
+  }
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -18,7 +22,10 @@ export default async function AccountPage() {
     .maybeSingle();
 
   if (error) throw error;
-  if (!data) redirect("/login");
+  if (!data) {
+    redirect({ href: "/login", locale });
+    return null;
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
