@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { motion } from "framer-motion";
 import { FileText } from "lucide-react";
 
@@ -17,6 +18,7 @@ export function CitationCard({
   citation: Citation;
   onOpen?: (citation: Citation) => void;
 }) {
+  const t = useTranslations("CitationCard");
   const interactive = Boolean(onOpen);
 
   return (
@@ -37,12 +39,12 @@ export function CitationCard({
         <span className="min-w-0 truncate">{citation.document_name}</span>
         {citation.page != null ? (
           <span className="shrink-0 font-medium text-accent">
-            · Page {citation.page}
+            {t("page", { page: citation.page })}
           </span>
         ) : null}
         {interactive ? (
-          <span className="ml-auto shrink-0 font-normal text-text-secondary">
-            Open
+          <span className="ms-auto shrink-0 font-normal text-text-secondary">
+            {t("open")}
           </span>
         ) : null}
       </p>

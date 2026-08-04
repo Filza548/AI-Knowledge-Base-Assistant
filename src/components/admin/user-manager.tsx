@@ -2,7 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ function statusLabel(status?: string) {
 }
 
 export function UserManager({ users }: { users: UserRow[] }) {
+  const t = useTranslations("UserManager");
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -64,8 +65,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
         body: JSON.stringify({ name, email, role }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to invite user");
-
+      if (!res.ok) throw new Error(json?.error ?? t("createFailed"));
       setName("");
       setEmail("");
       setRole("assistant");
@@ -77,7 +77,7 @@ export function UserManager({ users }: { users: UserRow[] }) {
       }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to invite user");
+      setError(err instanceof Error ? err.message : t("createFailed"));
     } finally {
       setLoading(false);
     }
@@ -118,107 +118,37 @@ export function UserManager({ users }: { users: UserRow[] }) {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Invite user</h3>
-          <p className="text-xs text-text-secondary">
-            Sends an invite email. They can set a password or use Continue with
-            Google with the same email. Without Resend configured, copy the
-            invite link below.
-          </p>
-        </div>
-        <form onSubmit={onInvite} className="grid gap-3 md:grid-cols-2">
-          <Input
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
-          <Input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <select
-            className={selectFieldClassName}
-            value={role}
-            onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
-          >
-            <option value="assistant">ASSISTANT</option>
-            <option value="admin">ADMIN</option>
-          </select>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Sending invite…" : "Send invite"}
-          </Button>
-        </form>
-        {error ? <p className="text-sm text-danger">{error}</p> : null}
-        {inviteUrl ? (
-          <div className="rounded-xl border border-border bg-background/70 p-3 text-xs break-all">
-            <p className="mb-1 font-medium text-foreground">Invite link</p>
-            <p className="text-text-secondary">{inviteUrl}</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-2"
-              onClick={async () => {
-                await navigator.clipboard.writeText(inviteUrl);
-                toast.success("Invite link copied");
-              }}
-            >
-              Copy link
-            </Button>
-          </div>
-        ) : null}
-      </div>
-
-      {pending.length ? (
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">
-              Pending access requests
-            </h3>
-            <p className="text-xs text-text-secondary">
-              People who signed up without an invite. Approve to grant access.
-            </p>
-          </div>
-          <div className="space-y-2">
-            {pending.map((u) => (
-              <div
-                key={u.id}
-                className="flex flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground">{u.name}</p>
-                  <p className="truncate text-text-secondary">{u.email}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge className="w-fit uppercase">Pending</Badge>
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={actionId === u.id}
-                    onClick={() => void approve(u.id)}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={actionId === u.id}
-                    onClick={() => void reject(u.id)}
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+    <div className="space-y-6">
+      <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2">
+        <Input placeholder={t("namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input
+          type="email"
+          placeholder={t("emailPlaceholder")}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+        <Input
+          type="password"
+          placeholder={t("passwordPlaceholder")}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={10}
+        />
+        <select
+          className={selectFieldClassName}
+          value={role}
+          onChange={(e) => setRole(e.target.value as "assistant" | "admin")}
+        >
+          <option value="assistant">{t("roleAssistant")}</option>
+          <option value="admin">{t("roleAdmin")}</option>
+        </select>
+        <Button type="submit" disabled={loading} className="md:col-span-2">
+          {loading ? t("creating") : t("createUser")}
+        </Button>
+      </form>
+      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">All users</h3>

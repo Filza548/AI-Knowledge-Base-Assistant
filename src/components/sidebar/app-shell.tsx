@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SidebarProvider, useSidebar } from "@/components/sidebar/sidebar-context";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ type ShellProps = {
 };
 
 function ShellInner({ email, role, name, children }: ShellProps) {
+  const t = useTranslations("AppShell");
+  const tNav = useTranslations("Nav");
   const { open, setOpen, toggle, isMobile } = useSidebar();
 
   return (
@@ -21,7 +24,7 @@ function ShellInner({ email, role, name, children }: ShellProps) {
       {isMobile && open ? (
         <button
           type="button"
-          aria-label="Close menu"
+          aria-label={tNav("closeMenu")}
           className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] lg:hidden"
           onClick={() => setOpen(false)}
         />
@@ -38,17 +41,17 @@ function ShellInner({ email, role, name, children }: ShellProps) {
               size="icon"
               className="shrink-0"
               onClick={toggle}
-              aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+              aria-label={open ? t("collapseSidebar") : t("expandSidebar")}
               aria-expanded={open}
             >
-              <PanelLeft className="h-4 w-4" />
+              <PanelLeft className="h-4 w-4 rtl:-scale-x-100" />
             </Button>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-foreground">
-                AI Knowledge Base
+                {t("appName")}
               </p>
               <p className="hidden truncate text-xs text-text-secondary sm:block">
-                Secure knowledge workspace · session lasts up to 8 hours
+                {t("tagline")}
               </p>
             </div>
           </div>
@@ -57,7 +60,7 @@ function ShellInner({ email, role, name, children }: ShellProps) {
               "hidden rounded-full bg-accent/15 px-3 py-1 text-xs font-medium text-accent md:inline",
             )}
           >
-            Source-backed answers
+            {t("sourceBacked")}
           </span>
         </header>
         <main className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6 pb-[max(0.75rem,env(safe-area-inset-bottom))]">

@@ -1,5 +1,6 @@
+import { getLocale, getTranslations } from "next-intl/server";
 import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
+import { redirect } from "@/i18n/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { DocumentUploader } from "@/components/uploader/document-uploader";
 import { DocumentAdminList } from "@/components/document/document-admin-list";
@@ -11,9 +12,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
-  if (session.user.role !== "admin") redirect("/dashboard");
+  const [session, locale, t] = await Promise.all([
+    auth(),
+    getLocale(),
+    getTranslations("AdminSettings"),
+  ]);
+  if (!session) {
+    redirect({ href: "/login", locale });
+    return null;
+  }
+  if (session.user.role !== "admin") {
+    redirect({ href: "/dashboard", locale });
+    return null;
+  }
 
   const supabase = getSupabaseAdmin();
   const [documentsRes, usersRes, collectionsRes, linksRes] = await Promise.all([
@@ -63,18 +74,17 @@ export default async function AdminSettingsPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="space-y-2">
         <p className="text-xs font-semibold tracking-[0.16em] text-primary uppercase">
-          Administration
+          {t("eyebrow")}
         </p>
-        <h1 className="text-2xl font-bold tracking-tight">Admin Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-text-secondary">
-          Keep the knowledge base healthy: upload and reindex PDFs/DOCX, organize
-          collections, invite or approve teammates, and review usage analytics.
+          {t("description")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Usage analytics</CardTitle>
+          <CardTitle>{t("analyticsTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <AdminAnalytics />
@@ -83,7 +93,7 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Upload PDF / DOCX</CardTitle>
+          <CardTitle>{t("uploadTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <DocumentUploader />
@@ -92,7 +102,7 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Manage documents</CardTitle>
+          <CardTitle>{t("manageDocumentsTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <DocumentAdminList documents={documents ?? []} />
@@ -101,7 +111,7 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Collections</CardTitle>
+          <CardTitle>{t("collectionsTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <CollectionManager
@@ -117,7 +127,7 @@ export default async function AdminSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Users & access</CardTitle>
+          <CardTitle>{t("manageUsersTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <UserManager users={users ?? []} />

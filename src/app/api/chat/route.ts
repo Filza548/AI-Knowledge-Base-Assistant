@@ -1,5 +1,5 @@
 import { handleRouteError, jsonOk, ApiError } from "@/lib/api";
-import { parseJsonBody } from "@/lib/http";
+import { parseJsonBody, getRequestLocale } from "@/lib/http";
 import { requireSession } from "@/lib/session";
 import {
   answerWithRag,
@@ -156,6 +156,7 @@ export async function POST(req: Request) {
       documentIds: scope.documentIds,
       history,
       includeFollowUps: false,
+      locale: getRequestLocale(req),
     });
 
     const { error: userMsgError } = await supabase.from("messages").insert({

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ type CollectionOption = {
 };
 
 export function SearchBar() {
+  const t = useTranslations("Search");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -74,11 +76,11 @@ export function SearchBar() {
         signal: controller.signal,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Search failed");
+      if (!res.ok) throw new Error(json?.error ?? t("searchFailed"));
       setResults(json.results ?? []);
     } catch (err) {
       if (controller.signal.aborted) return;
-      setError(err instanceof Error ? err.message : "Search failed");
+      setError(err instanceof Error ? err.message : t("searchFailed"));
       setResults([]);
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -90,12 +92,12 @@ export function SearchBar() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Semantic Search</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
             <label htmlFor="search-collection" className="sr-only">
-              Collection filter
+              {t("collectionFilterSrLabel")}
             </label>
             <select
               id="search-collection"
@@ -103,7 +105,7 @@ export function SearchBar() {
               value={collectionId}
               onChange={(e) => setCollectionId(e.target.value)}
             >
-              <option value="">All documents</option>
+              <option value="">{t("allDocuments")}</option>
               {collections.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -112,13 +114,13 @@ export function SearchBar() {
               ))}
             </select>
             <label htmlFor="search-query" className="sr-only">
-              Search query
+              {t("searchQuerySrLabel")}
             </label>
             <Input
               id="search-query"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search across indexed documents…"
+              placeholder={t("placeholder")}
               className="flex-1"
             />
             <Button type="submit" disabled={loading || !query.trim()}>
@@ -127,7 +129,7 @@ export function SearchBar() {
               ) : (
                 <Search className="h-4 w-4" />
               )}
-              {loading ? "Searching…" : "Search"}
+              {loading ? t("searching") : t("search")}
             </Button>
           </form>
           {error ? (
@@ -137,24 +139,23 @@ export function SearchBar() {
           ) : null}
           <div className="space-y-2" aria-live="polite">
             {loading ? (
-              <p className="text-sm text-text-secondary">Searching knowledge base…</p>
+              <p className="text-sm text-text-secondary">{t("searchingKnowledgeBase")}</p>
             ) : null}
             {!loading && hasSearched && results.length === 0 && !error ? (
               <p className="rounded-xl border border-dashed border-border bg-surface-muted/50 p-4 text-sm text-text-secondary">
-                No matching passages for “{query.trim()}”. Try different keywords
-                or another collection.
+                {t("noResults", { query: query.trim() })}
               </p>
             ) : null}
             {!loading && results.length > 0 ? (
               <p className="text-xs text-text-secondary">
-                {results.length} result{results.length === 1 ? "" : "s"}
+                {t("resultCount", { count: results.length })}
               </p>
             ) : null}
             {results.map((r) => (
               <button
                 key={`${r.document_id}-${r.page}-${r.snippet.slice(0, 24)}`}
                 type="button"
-                className="w-full rounded-xl border border-border bg-surface p-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-surface-muted"
+                className="w-full rounded-xl border border-border bg-surface p-3 text-start text-sm transition-colors hover:border-primary/40 hover:bg-surface-muted"
                 onClick={() =>
                   setViewer({
                     documentId: r.document_id,
@@ -170,7 +171,9 @@ export function SearchBar() {
                   {r.snippet}
                 </p>
                 <p className="mt-1 text-xs text-text-secondary/80">
-                  Match {(r.similarity * 100).toFixed(0)}% · Click to open source
+                  {t("matchOpenSource", {
+                    percent: (r.similarity * 100).toFixed(0),
+                  })}
                 </p>
               </button>
             ))}

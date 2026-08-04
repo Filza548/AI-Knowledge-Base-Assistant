@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function CollectionManager({
   collections: Collection[];
   documents: Doc[];
 }) {
+  const t = useTranslations("CollectionManager");
   const router = useRouter();
   const confirm = useConfirm();
   const [collections, setCollections] = useState(initial);
@@ -66,15 +68,15 @@ export function CollectionManager({
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Create failed");
+      if (!res.ok) throw new Error(json?.error ?? t("createFailed"));
       setCollections((prev) => [...prev, json.collection]);
       setName("");
       setDescription("");
       setSelectedDocs([]);
-      toast.success("Collection created");
+      toast.success(t("collectionCreated"));
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Create failed";
+      const message = err instanceof Error ? err.message : t("createFailed");
       setError(message);
       toast.error(message);
     } finally {
@@ -92,14 +94,14 @@ export function CollectionManager({
         body: JSON.stringify({ documentIds }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Update failed");
+      if (!res.ok) throw new Error(json?.error ?? t("updateFailed"));
       setCollections((prev) =>
         prev.map((c) => (c.id === id ? json.collection : c)),
       );
       setEditingId(null);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      setError(err instanceof Error ? err.message : t("updateFailed"));
     } finally {
       setBusy(false);
     }
@@ -107,10 +109,9 @@ export function CollectionManager({
 
   async function remove(id: string) {
     const ok = await confirm({
-      title: "Delete this collection?",
-      description:
-        "Documents stay in the knowledge base — only this collection grouping is removed.",
-      confirmLabel: "Delete",
+      title: t("deleteTitle"),
+      description: t("deleteDescription"),
+      confirmLabel: t("delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -118,12 +119,12 @@ export function CollectionManager({
     try {
       const res = await fetch(`/api/collections/${id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Delete failed");
+      if (!res.ok) throw new Error(json?.error ?? t("deleteFailed"));
       setCollections((prev) => prev.filter((c) => c.id !== id));
-      toast.success("Collection deleted");
+      toast.success(t("collectionDeleted"));
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Delete failed";
+      const message = err instanceof Error ? err.message : t("deleteFailed");
       setError(message);
       toast.error(message);
     } finally {
@@ -139,17 +140,17 @@ export function CollectionManager({
         onSubmit={createCollection}
         className="space-y-3 rounded-2xl border border-border bg-surface p-4"
       >
-        <p className="text-sm font-medium text-foreground">Create collection</p>
+        <p className="text-sm font-medium text-foreground">{t("createTitle")}</p>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Name (e.g. HR Policies)"
+          placeholder={t("namePlaceholder")}
           required
         />
         <Input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Description (optional)"
+          placeholder={t("descriptionPlaceholder")}
         />
         <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-border bg-surface-muted/50 p-2">
           {readyDocs.map((d) => (
@@ -167,11 +168,11 @@ export function CollectionManager({
             </label>
           ))}
           {!readyDocs.length ? (
-            <p className="text-xs text-text-secondary">No ready documents yet.</p>
+            <p className="text-xs text-text-secondary">{t("noReadyDocuments")}</p>
           ) : null}
         </div>
         <Button type="submit" disabled={busy || !name.trim()}>
-          Create collection
+          {t("createButton")}
         </Button>
       </form>
 
@@ -190,7 +191,7 @@ export function CollectionManager({
                   <p className="text-xs text-text-secondary">{c.description}</p>
                 ) : null}
                 <div className="mt-2">
-                  <Badge>{c.document_count} docs</Badge>
+                  <Badge>{t("docsCount", { count: c.document_count })}</Badge>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -204,7 +205,7 @@ export function CollectionManager({
                   }}
                   className="flex-1 sm:flex-none"
                 >
-                  Edit docs
+                  {t("editDocs")}
                 </Button>
                 <Button
                   size="sm"
@@ -239,14 +240,14 @@ export function CollectionManager({
                   disabled={busy}
                   onClick={() => saveDocs(c.id, selectedDocs)}
                 >
-                  Save documents
+                  {t("saveDocuments")}
                 </Button>
               </div>
             ) : null}
           </div>
         ))}
         {!collections.length ? (
-          <p className="text-sm text-text-secondary">No collections yet.</p>
+          <p className="text-sm text-text-secondary">{t("noCollections")}</p>
         ) : null}
       </div>
     </div>

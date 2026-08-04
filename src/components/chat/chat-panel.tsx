@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSession } from "next-auth/react";
 import {
@@ -48,17 +49,46 @@ function newId() {
   return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function exportMarkdown(content: string, citations?: Citation[]) {
+function levelFromScore(score?: number | null): ConfidenceLevel {
+  if (score == null || score <= 0) return "none";
+  if (score >= 0.72) return "high";
+  if (score >= 0.5) return "medium";
+  return "low";
+}
+
+function confidenceLabel(
+  level: ConfidenceLevel,
+  t: (key: string) => string,
+) {
+  if (level === "high") return t("confidenceHigh");
+  if (level === "medium") return t("confidenceMedium");
+  if (level === "low") return t("confidenceLow");
+  return t("confidenceNone");
+}
+
+function confidenceClass(level: ConfidenceLevel) {
+  if (level === "high") return "border-accent/30 bg-accent/15 text-accent";
+  if (level === "medium") return "border-primary/30 bg-primary/10 text-primary";
+  if (level === "low") return "border-warning/30 bg-warning/10 text-warning";
+  return "";
+}
+
+function exportMarkdown(
+  content: string,
+  citations: Citation[] | undefined,
+  sourcesHeading: string,
+  noneLabel: string,
+) {
   const lines = [
     content,
     "",
-    "## Sources",
+    `## ${sourcesHeading}`,
     ...(citations?.length
       ? citations.map(
           (c) =>
             `- ${c.document_name}${c.page != null ? ` (p. ${c.page})` : ""}: ${c.snippet}`,
         )
-      : ["- None"]),
+      : [`- ${noneLabel}`]),
   ];
   const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
   const url = URL.createObjectURL(blob);
@@ -71,13 +101,13 @@ function exportMarkdown(content: string, citations?: Citation[]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function TypingIndicator() {
+function TypingIndicator({ label }: { label: string }) {
   return (
     <div
       className="flex items-center gap-2 text-sm text-text-secondary"
       aria-live="polite"
     >
-      <span className="sr-only">Assistant is typing</span>
+      <span className="sr-only">{label}</span>
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white">
         <Bot className="h-4 w-4" />
       </div>
@@ -101,6 +131,7 @@ export function ChatPanel({
   showCollectionPicker?: boolean;
   readyDocumentCount?: number;
 }) {
+  const t = useTranslations("Chat");
   const confirm = useConfirm();
   const { data: session } = useSession();
   const userId = session?.user?.id;
@@ -183,7 +214,7 @@ export function ChatPanel({
     try {
       const res = await apiFetch(`/api/conversations/${id}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Failed to load chat");
+      if (!res.ok) throw new Error(json?.error ?? t("failedToLoadChat"));
       if (seq !== loadSeqRef.current) return;
       setConversationId(id);
       setCollectionId(json.conversation?.collection_id ?? "");
@@ -204,8 +235,7 @@ export function ChatPanel({
       );
     } catch (err) {
       if (seq !== loadSeqRef.current) return;
-      setError(err instanceof Error ? err.message : "Failed to load chat");
-      toast.error("Could not open that chat");
+      setError(err instanceof Error ? err.message : t("failedToLoadChat"));
     } finally {
       if (seq === loadSeqRef.current) setLoadingHistory(false);
     }
@@ -223,19 +253,19 @@ export function ChatPanel({
 
   async function deleteConversation(id: string) {
     const ok = await confirm({
-      title: "Delete this conversation?",
-      description: "This chat and its messages will be removed permanently.",
-      confirmLabel: "Delete",
+      title: t("deleteConversationTitle"),
+      description: t("deleteConversationDescription"),
+      confirmLabel: t("delete"),
       destructive: true,
     });
     if (!ok) return;
     const res = await apiFetch(`/api/conversations/${id}`, { method: "DELETE" });
     if (!res.ok) {
-      setError("Could not delete conversation");
-      toast.error("Could not delete conversation");
+      setError(t("couldNotDeleteConversation"));
+      toast.error(t("couldNotDeleteConversation"));
       return;
     }
-    toast.success("Conversation deleted");
+    toast.success(t("conversationDeleted"));
     if (conversationId === id) startNewChat();
     await refreshConversations();
   }
@@ -278,7 +308,7 @@ export function ChatPanel({
         signal: controller.signal,
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? "Chat failed");
+      if (!res.ok) throw new Error(json?.error ?? t("chatFailed"));
 
       if (json.conversationId) {
         setConversationId(json.conversationId);
@@ -297,11 +327,11 @@ export function ChatPanel({
       await refreshConversations();
     } catch (err) {
       if (controller.signal.aborted) {
-        setError("Generation stopped");
+        setError(t("generationStopped"));
         return;
       }
       setLastFailedQuery(trimmed);
-      setError(err instanceof Error ? err.message : "Chat failed");
+      setError(err instanceof Error ? err.message : t("chatFailed"));
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
       setLoading(false);
@@ -319,11 +349,7 @@ export function ChatPanel({
       ? []
       : suggestions.length > 0
         ? suggestions
-        : [
-            "What is the leave policy?",
-            "Summarize onboarding steps",
-            "Where is the reimbursement process?",
-          ];
+        : [t("suggestion1"), t("suggestion2"), t("suggestion3")];
 
   return (
     <>
@@ -333,10 +359,10 @@ export function ChatPanel({
         {showHistory ? (
           <Card className="h-[calc(100dvh-10rem)] overflow-hidden max-lg:order-2 max-lg:h-auto max-lg:max-h-48 sm:max-lg:max-h-56">
             <CardHeader className="space-y-3 border-b border-border p-4">
-              <CardTitle className="text-base">Chats</CardTitle>
+              <CardTitle className="text-base">{t("chatsHeading")}</CardTitle>
               <Button size="sm" className="w-full" onClick={startNewChat}>
                 <MessageSquarePlus className="h-4 w-4" />
-                New chat
+                {t("newChat")}
               </Button>
             </CardHeader>
             <CardContent className="space-y-1 overflow-y-auto p-2">
@@ -351,7 +377,7 @@ export function ChatPanel({
                 >
                   <button
                     type="button"
-                    className="min-w-0 flex-1 truncate text-left"
+                    className="min-w-0 flex-1 truncate text-start"
                     onClick={() => loadConversation(c.id)}
                   >
                     {c.title}
@@ -364,7 +390,7 @@ export function ChatPanel({
                         : "hover:bg-border"
                     }`}
                     onClick={() => deleteConversation(c.id)}
-                    aria-label="Delete conversation"
+                    aria-label={t("deleteConversationAria")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -372,7 +398,7 @@ export function ChatPanel({
               ))}
               {!conversations.length ? (
                 <p className="px-2 py-4 text-xs text-text-secondary">
-                  No saved chats yet. Ask a question to start one.
+                  {t("noSavedChats")}
                 </p>
               ) : null}
             </CardContent>
@@ -382,15 +408,15 @@ export function ChatPanel({
         <Card className="flex h-[min(70dvh,32rem)] flex-col overflow-hidden max-lg:order-1 sm:h-[min(70dvh,36rem)] lg:h-[calc(100dvh-10rem)]">
           <CardHeader className="space-y-3 border-b border-border">
             <div>
-              <CardTitle>Knowledge Chat</CardTitle>
+              <CardTitle>{t("knowledgeChatTitle")}</CardTitle>
               <p className="text-sm text-text-secondary">
-                Ask questions — answers cite your uploaded documents.
+                {t("knowledgeChatSubtitle")}
               </p>
             </div>
             {showCollectionPicker && !documentId ? (
               <div className="space-y-1">
                 <label htmlFor="chat-collection" className="sr-only">
-                  Collection scope
+                  {t("collectionScopeSrLabel")}
                 </label>
                 <select
                   id="chat-collection"
@@ -399,7 +425,7 @@ export function ChatPanel({
                   onChange={(e) => setCollectionId(e.target.value)}
                   disabled={Boolean(conversationId)}
                 >
-                  <option value="">All documents</option>
+                  <option value="">{t("allDocuments")}</option>
                   {collections.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -427,12 +453,12 @@ export function ChatPanel({
                   <LogoMark size={56} animated />
                   <div className="space-y-2">
                     <p className="text-lg font-semibold tracking-tight">
-                      Ask the knowledge base
+                      {t("askKnowledgeBase")}
                     </p>
                     <p className="max-w-md text-sm text-text-secondary">
                       {kbEmpty
-                        ? "No indexed company documents yet. An admin must upload PDFs or DOCX — once status is ready, you can ask questions from the knowledge base."
-                        : "Ask about policies, SOPs, or product docs — answers include citations when sources exist."}
+                        ? t("emptyStateBodyEmpty")
+                        : t("emptyStateBodyReady")}
                     </p>
                   </div>
                   {chips.length > 0 ? (
@@ -446,7 +472,7 @@ export function ChatPanel({
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: 0.1 + i * 0.07 }}
                           onClick={() => sendQuery(s)}
-                          className="rounded-full border border-border bg-surface-muted px-3.5 py-1.5 text-left text-xs text-foreground transition hover:border-primary/40 hover:bg-surface hover:shadow-sm"
+                          className="rounded-full border border-border bg-surface-muted px-3.5 py-1.5 text-start text-xs text-foreground transition hover:border-primary/40 hover:bg-surface hover:shadow-sm"
                         >
                           {s}
                         </motion.button>
@@ -484,6 +510,16 @@ export function ChatPanel({
                           animate={{ opacity: 1 }}
                           className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3"
                         >
+                          <Badge
+                            className={confidenceClass(
+                              m.confidenceLevel ?? "none",
+                            )}
+                          >
+                            {confidenceLabel(m.confidenceLevel ?? "none", t)}
+                            {m.confidence != null && m.confidence > 0
+                              ? ` · ${(m.confidence * 100).toFixed(0)}%`
+                              : ""}
+                          </Badge>
                           <Button
                             type="button"
                             size="sm"
@@ -492,30 +528,35 @@ export function ChatPanel({
                               void navigator.clipboard
                                 ?.writeText(m.content)
                                 .catch(() =>
-                                  setError("Clipboard permission denied"),
+                                  setError(t("clipboardDenied")),
                                 );
                             }}
                           >
                             <Copy className="h-3.5 w-3.5" />
-                            Copy
+                            {t("copy")}
                           </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
                             onClick={() =>
-                              exportMarkdown(m.content, m.citations)
+                              exportMarkdown(
+                                m.content,
+                                m.citations,
+                                t("exportSourcesHeading"),
+                                t("exportNoSources"),
+                              )
                             }
                           >
                             <Download className="h-3.5 w-3.5" />
-                            Export
+                            {t("export")}
                           </Button>
                         </motion.div>
                       ) : null}
                       {m.citations && m.citations.length > 0 ? (
                         <div className="mt-3 space-y-2 border-t border-border pt-3">
                           <Badge className="border-primary/20 bg-primary/10 text-primary">
-                            Sources
+                            {t("sources")}
                           </Badge>
                           {m.citations.map((c, idx) => (
                             <motion.div
@@ -566,13 +607,7 @@ export function ChatPanel({
                 ))}
               </AnimatePresence>
 
-              {loadingHistory ? (
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Opening chat…
-                </div>
-              ) : null}
-              {loading ? <TypingIndicator /> : null}
+              {loading ? <TypingIndicator label={t("assistantTyping")} /> : null}
               {error ? (
                 <div className="space-y-2" role="alert">
                   <p className="text-sm text-danger">{error}</p>
@@ -583,7 +618,7 @@ export function ChatPanel({
                       variant="outline"
                       onClick={() => sendQuery(lastFailedQuery)}
                     >
-                      Retry last question
+                      {t("retryLastQuestion")}
                     </Button>
                   ) : null}
                 </div>
@@ -596,13 +631,13 @@ export function ChatPanel({
             >
               <div className="flex items-end gap-2">
                 <label htmlFor="chat-composer" className="sr-only">
-                  Message
+                  {t("messageSrLabel")}
                 </label>
                 <Textarea
                   id="chat-composer"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Ask the knowledge base…"
+                  placeholder={t("composerPlaceholder")}
                   className="min-h-[52px] min-w-0 flex-1 resize-none"
                   maxLength={4000}
                   onKeyDown={(e) => {
@@ -617,7 +652,7 @@ export function ChatPanel({
                     type="button"
                     variant="outline"
                     className="h-[52px] shrink-0 px-4"
-                    aria-label="Stop generating"
+                    aria-label={t("stopGenerating")}
                     onClick={stopGenerating}
                   >
                     <Square className="h-4 w-4" />
@@ -627,7 +662,7 @@ export function ChatPanel({
                     type="submit"
                     disabled={!query.trim()}
                     className="h-[52px] shrink-0 px-4"
-                    aria-label="Send"
+                    aria-label={t("send")}
                   >
                     <Send className="h-4 w-4" />
                   </Button>

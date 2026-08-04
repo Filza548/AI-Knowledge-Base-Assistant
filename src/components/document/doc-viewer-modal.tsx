@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Download, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -23,6 +24,7 @@ export function DocViewerModal({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("DocViewer");
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const [state, setState] = useState<ViewerState>(null);
@@ -39,7 +41,7 @@ export function DocViewerModal({
     fetch(`/api/documents/${documentId}/file`)
       .then(async (res) => {
         const json = await res.json();
-        if (!res.ok) throw new Error(json?.error ?? "Could not open file");
+        if (!res.ok) throw new Error(json?.error ?? t("couldNotOpen"));
         if (!cancelled) {
           setState({
             url: json.url,
@@ -50,7 +52,7 @@ export function DocViewerModal({
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Could not open file");
+          setError(err instanceof Error ? err.message : t("couldNotOpen"));
         }
       })
       .finally(() => {
@@ -105,8 +107,8 @@ export function DocViewerModal({
               id={titleId}
               className="truncate text-sm font-medium text-foreground"
             >
-              {state?.documentName ?? "Document"}
-              {page != null ? ` · Page ${page}` : ""}
+              {state?.documentName ?? t("documentFallback")}
+              {page != null ? t("page", { page }) : ""}
             </p>
             {snippet ? (
               <p className="mt-1 line-clamp-1 text-xs text-text-secondary">
@@ -120,13 +122,13 @@ export function DocViewerModal({
                 <Button variant="outline" size="sm" asChild>
                   <a href={state.url} target="_blank" rel="noreferrer">
                     <ExternalLink className="h-4 w-4" />
-                    <span className="hidden sm:inline">Open</span>
+                    <span className="hidden sm:inline">{t("open")}</span>
                   </a>
                 </Button>
                 <Button variant="outline" size="sm" asChild>
                   <a href={state.url} download={state.documentName}>
                     <Download className="h-4 w-4" />
-                    <span className="hidden sm:inline">Download</span>
+                    <span className="hidden sm:inline">{t("download")}</span>
                   </a>
                 </Button>
               </>
@@ -136,7 +138,7 @@ export function DocViewerModal({
               variant="ghost"
               size="sm"
               onClick={onClose}
-              aria-label="Close document viewer"
+              aria-label={t("closeViewer")}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -144,7 +146,7 @@ export function DocViewerModal({
         </div>
         <div className="flex-1 bg-surface-muted/40">
           {loading ? (
-            <p className="p-6 text-sm text-text-secondary">Loading document…</p>
+            <p className="p-6 text-sm text-text-secondary">{t("loading")}</p>
           ) : null}
           {error ? (
             <p className="p-6 text-sm text-danger" role="alert">
@@ -161,8 +163,7 @@ export function DocViewerModal({
           {state?.fileType === "docx" && state.url ? (
             <div className="space-y-4 p-6">
               <p className="text-sm text-text-secondary">
-                In-browser DOCX preview is limited. Download the file, or use the
-                cited snippet below.
+                {t("docxPreviewLimited")}
               </p>
               {snippet ? (
                 <blockquote className="rounded-xl border border-border bg-surface p-4 text-sm text-foreground">
@@ -172,7 +173,7 @@ export function DocViewerModal({
               <Button asChild>
                 <a href={state.url} download={state.documentName}>
                   <Download className="h-4 w-4" />
-                  Download DOCX
+                  {t("downloadDocx")}
                 </a>
               </Button>
             </div>
